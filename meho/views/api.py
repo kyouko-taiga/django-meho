@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This source file is part of django-meho
 # Main Developer : Dimitri Racordon (kyouko.taiga@gmail.com)
 #
