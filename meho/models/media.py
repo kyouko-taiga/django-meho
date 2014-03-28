@@ -19,36 +19,18 @@ import uuid
 
 from django.db import models
 
-class Serie(models.Model):
-
-    title = models.CharField(max_length=100)
-    title_orig = models.CharField(max_length=100, blank=True)
-    slug = models.SlugField()
-
-    def __str__(self):
-        return self.title
-
-class Episode(models.Model):
-
-    title = models.CharField(max_length=100, blank=True)
-    number = models.IntegerField()
-    serie = models.ForeignKey(Serie)
-
-    def __str__(self):
-        return '{0} episode {1}'.format(serie.title, number)
-
-    class Meta:
-        ordering = ('number',)
-
 class Media(models.Model):
 
     urn = models.CharField(max_length=100, primary_key=True, default=lambda: str(uuid.uuid1().urn))
     url = models.URLField()
+    mime_type = models.CharField(max_length=100, blank=True)
     parent = models.ForeignKey('self', null=True)
-    episode = models.ForeignKey(Episode, null=True)
 
     def __str__(self):
         return '{0}@{1}'.format(self.urn, self.url)
+
+    class Meta:
+        app_label = 'meho'
 
 class Metadata(models.Model):
 
@@ -58,3 +40,6 @@ class Metadata(models.Model):
 
     def __str__(self):
         return '{0}.{1}: {2}'.format(media, name, content)
+
+    class Meta:
+        app_label = 'meho'
