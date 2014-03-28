@@ -15,17 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.conf.urls import patterns, include, url
+import json
 
-urn_pattern = r"urn:[a-zA-Z0-9][a-zA-Z0-9-]{1,31}:([a-zA-Z0-9()+,.:=@;$_!*'-]|%[0-9A-Fa-f]{2})+"
+from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 
-urlpatterns = patterns('',
-    url(r'^api/version$', 'meho.views.api.version', name='api_version'),
-
-    url(r'^api/files/(?P<filename>[\w\-\./]+)$', 'meho.views.api.upload', name='api_file_upload'),
-
-    url(r'^api/media$', 'meho.views.api.media.create', name='api_media_create'),
-    url(r'^api/media/$', 'meho.views.api.media.search', name='api_media_search'),
-    url(r'^api/media/(?P<urn>{0})$'.format(urn_pattern),
-        'meho.views.api.media.single', name='api_single'),
-)
+@ensure_csrf_cookie
+def version(request):
+    return HttpResponse(json.dumps({'version': '0.1'}), content_type='application/json')
