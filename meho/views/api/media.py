@@ -16,15 +16,16 @@
 # limitations under the License.
 
 import json
+import os
+import tempfile
 import uuid
 
-from django import forms
 from django.core import serializers
+from django.core.files.storage import default_storage
 from django.conf import settings
-from django.core.files.uploadhandler import FileUploadHandler
-from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt
 from meho.auth import basic_http_auth
 from meho.models import Media
 
@@ -42,12 +43,13 @@ def create(request, user, urn=None):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    urn     = urn or str(uuid.uuid1().urn)
-    parent  = request.POST.get('parent', None)
-    url     = request.POST.get('url', None)
-    episode = request.POST.get('episode', None)
+    urn         = urn or str(uuid.uuid1().urn)
+    url         = request.POST.get('url', None)
+    file        = 
+    mime_type   = request.POST.get('mime-type', None)
+    parent      = request.POST.get('parent', None)
     
-    media = Media(urn=urn, parent=parent, url=url, episode=episode)
+    media = Media(urn=urn, url=url, file=file, mime_type=mime_type, parent=parent)
     media.save()
 
     json_serializer = serializers.get_serializer('json')()
@@ -71,3 +73,18 @@ def single(request, user, urn):
 
     # returns the retrieved object
     return HttpResponse(response, content_type='application/json')
+
+@basic_http_auth(realm='api')
+def transcode(request, user):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    # retrieve media inut and output
+    media_in  = get_object_or_404(Media, urn=request.POST.get('in-urn', None))
+    try:
+        media_out = Media(
+            urn=request.POST.get('out-urn', uuid.uuid1().urn),
+            url='file://' + os.path.join(tempfile.mkdtemp(), str(uuid.uuid4())),
+            published=False,
+            mime_type=request.POST.get('out-mime', ''),
+            parent=media_in)

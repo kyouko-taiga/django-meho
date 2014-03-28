@@ -17,17 +17,19 @@
 
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 class Media(models.Model):
 
-    urn = models.CharField(max_length=100, primary_key=True, default=lambda: str(uuid.uuid1().urn))
-    url = models.URLField()
-    mime_type = models.CharField(max_length=100, blank=True)
+    urn = models.CharField(max_length=100, primary_key=True, default=lambda: uuid.uuid1().urn)
+    url = models.URLField(null=True)
+    file = models.FileField(upload_to=settings.MEHO_MEDIA_UPLOAD_TO)
+    mime_type = models.CharField(max_length=100, null=True)
     parent = models.ForeignKey('self', null=True)
 
     def __str__(self):
-        return '{0}@{1}'.format(self.urn, self.url)
+        return self.urn
 
     class Meta:
         app_label = 'meho'
