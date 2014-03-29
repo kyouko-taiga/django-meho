@@ -110,7 +110,7 @@ def transcode(request, user, urn):
     if encoder not in meho_settings.MEHO_ENCODERS:
         return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
 
-    encoder = load_encoder(encoder_name)
+    encoder = load_encoder(meho_settings.MEHO_ENCODERS[encoder])
     encoder.transcode(media_in, media_out, encoder_string)
 
     # return the freshly created media
