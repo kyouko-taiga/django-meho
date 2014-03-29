@@ -27,5 +27,7 @@ urlpatterns = patterns('',
     url(r'^api/media$', 'meho.views.api.media.create', name='api_media_create'),
     url(r'^api/media/$', 'meho.views.api.media.search', name='api_media_search'),
     url(r'^api/media/(?P<urn>{0})$'.format(urn_pattern),
-        'meho.views.api.media.single', name='api_single'),
+        'meho.views.api.media.single', name='api_media_single'),
+    url(r'^api/media/(?P<urn>{0})/transcode/$'.format(urn_pattern),
+        'meho.views.api.media.transcode', name='api_media_transcode'),
 )

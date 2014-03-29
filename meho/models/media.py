@@ -19,13 +19,14 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from meho.models.fields import URNField
 
 class Media(models.Model):
 
-    urn = models.CharField(max_length=100, primary_key=True, default=lambda: uuid.uuid1().urn)
-    url = models.URLField(null=True)
-    file = models.FileField(upload_to=settings.MEHO_MEDIA_UPLOAD_TO)
-    mime_type = models.CharField(max_length=100, null=True)
+    urn = URNField(primary_key=True, default=lambda: uuid.uuid1().urn)
+    private_url = models.URLField()
+    public_url = models.URLField(null=True)
+    media_type = models.CharField(max_length=100)
     parent = models.ForeignKey('self', null=True)
 
     def __str__(self):
