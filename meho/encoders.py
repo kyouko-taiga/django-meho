@@ -15,11 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.conf import settings as django_settings
+import importlib
 
-MEHO_DEFAULT_ENCODER = getattr(django_settings, 'MEHO_DEFAULT_ENCODER', 'meho.encoders.ffmpeg')
+def load_encoder(encoder_name):
+    module_name, class_name = encoder_name.rsplit('.', 1)
+    return getattr(importlib.import_module(encoder_name), class_name)
 
-MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
-    'ffmpeg': 'meho.encoders.ffmpeg',
-    'copy': 'meho.encoders.Copy'
-})
+class Copy(object):
+
+    def transcode(media_in, media_out, encoder_string):
+        cmd = 'cp {0} {1} {2}'.format(encoder_string, media_in)
