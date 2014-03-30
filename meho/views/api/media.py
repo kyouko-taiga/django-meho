@@ -92,7 +92,7 @@ def transcode(request, user, urn):
 
     # retrieve output media parameters
     media_out_urn = request.POST.get('out-urn', uuid.uuid1().urn)
-    media_out_private_url = 'tmp://' + slugify(media_out_urn)
+    media_out_private_url = 'tmp:///' + slugify(media_out_urn)
     media_out_parent = media_in
     try:
         media_out_type = request.POST['out-media-type']

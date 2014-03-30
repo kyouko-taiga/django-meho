@@ -16,6 +16,7 @@
 # limitations under the License.
 
 from django.conf import settings as django_settings
+from tempfile import gettempdir
 
 MEHO_DEFAULT_ENCODER = getattr(django_settings, 'MEHO_DEFAULT_ENCODER', 'meho.encoders.ffmpeg')
 
@@ -23,3 +24,9 @@ MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
     'ffmpeg': 'meho.core.encoders.ffmpeg',
     'copy': 'meho.core.encoders.Copy'
 })
+
+MEHO_FILE_LOCATORS = getattr(django_settings, 'MEHO_FILE_LOCATORS', {
+    'tmp': 'meho.core.files.TemporaryFileLocator',
+})
+
+MEHO_TEMP_ROOT = getattr(django_settings, 'MEHO_TEMP_ROOT', gettempdir())
