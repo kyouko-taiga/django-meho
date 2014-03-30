@@ -15,12 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.forms import CharField
-from meho.core import validators
+import re
 
-class URNFormField(CharField):
-    default_validators = [validators.validate_urn]
+from django.core.exceptions import ValidationError
 
-    def clean(self, value):
-        value = self.to_python(value).strip()
-        return super(URNField, self).clean(value)
+def validate_urn(value):
+    """Validator for uniform resource name (URN) as defined in RFC 2141"""
+
+    regex = r"urn:[a-zA-Z0-9][a-zA-Z0-9-]{1,31}:([a-zA-Z0-9()+,.:=@;$_!*'-]|%[0-9A-Fa-f]{2})+"
+    match = re.match(exp, regex)
+    if not match:
+        raise ValidationError(_('Enter a valid URN, according to RFC 2141.'), code='invalid')
