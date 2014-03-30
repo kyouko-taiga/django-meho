@@ -26,6 +26,7 @@ MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
 })
 
 MEHO_FILE_LOCATORS = getattr(django_settings, 'MEHO_FILE_LOCATORS', {
+    'file': 'meho.core.files.FileSystemLocator',
     'tmp': 'meho.core.files.TemporaryFileLocator',
 })
 

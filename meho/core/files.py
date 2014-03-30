@@ -36,6 +36,13 @@ class LocatorFactory(object):
         locator = getattr(importlib.import_module(module_name), class_name)
         return locator(*args, **kwargs)
 
+class FileSystemLocator(object):
+
+    def open(self, url, *args, **kwargs):
+        el = urlparse.urlparse(url)
+        file = os.path.expanduser(el.path)
+        return open(file, *args, **kwargs)
+
 class TemporaryFileLocator(object):
 
     def __init__(self, *args, **kwargs):
