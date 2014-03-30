@@ -19,7 +19,7 @@ import importlib
 
 def load_encoder(encoder_name):
     module_name, class_name = encoder_name.rsplit('.', 1)
-    return getattr(importlib.import_module(encoder_name), class_name)
+    return getattr(importlib.import_module(module_name), class_name)
 
 class Copy(object):
 
