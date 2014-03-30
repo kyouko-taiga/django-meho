@@ -29,7 +29,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from meho.auth import basic_http_auth
-from meho.encoers import load_encoder
+from meho.core.encoders import load_encoder
 from meho.models import Media
 
 @basic_http_auth(realm='api')

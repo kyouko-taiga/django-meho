@@ -20,6 +20,6 @@ from django.conf import settings as django_settings
 MEHO_DEFAULT_ENCODER = getattr(django_settings, 'MEHO_DEFAULT_ENCODER', 'meho.encoders.ffmpeg')
 
 MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
-    'ffmpeg': 'meho.encoders.ffmpeg',
-    'copy': 'meho.encoders.Copy'
+    'ffmpeg': 'meho.core.encoders.ffmpeg',
+    'copy': 'meho.core.encoders.Copy'
 })
