@@ -46,14 +46,16 @@ def create(request, user, urn=None):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    # retrieve media parameters
-    urn = urn or str(uuid.uuid1().urn)
-    parent = request.POST.get('parent', None)
+    # retrieve request parameters
+    rbody = json.loads(request.body)
+
     try:
-        private_url = request.POST['private-url']
-        media_type = request.POST['media-type']
+        urn         = rbody['media'].get('urn', uuid.uuid1().urn)
+        private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(out_urn))
+        media_type  = rbody['media'].get('media_type', '')
+        parent      = rbody['media'].get('parent', None)
     except KeyError as e:
-        return HttpResponseBadRequest(str(e) + ' is required')
+        return HttpResponseBadRequest(str(e) + ' is required.')
 
     # create the new media
     media = Media(urn=urn, private_url=private_url, media_type=media_type, parent=parent)
@@ -90,23 +92,24 @@ def transcode(request, user, urn):
     # retrieve input media
     media_in = get_object_or_404(Media, urn=urn)
 
-    # retrieve output media parameters
-    media_out_urn = request.POST.get('out-urn', uuid.uuid1().urn)
-    media_out_private_url = 'tmp:///' + slugify(media_out_urn)
-    media_out_parent = media_in
+    # retrieve request parameters
+    rbody = json.loads(request.body)
+
     try:
-        media_out_type = request.POST['out-media-type']
+        out_urn         = rbody['media'].get('urn', uuid.uuid1().urn)
+        out_private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(out_urn))
+        out_media_type  = rbody['media'].get('media_type', '')
     except KeyError as e:
-        return HttpResponseBadRequest(str(e) + ' is required')
+        return HttpResponseBadRequest(str(e) + ' is required.')
 
     # create output media
-    media_out = Media(urn=media_out_urn, private_url=media_out_private_url,
-        media_type=media_out_type, parent=media_out_parent)
+    media_out = Media(urn=out_urn, private_url=out_private_url, media_type=out_media_type,
+        parent=media_in)
     media_out.save()
 
-    # start transcoding job profile
-    encoder = request.POST.get('encoder', meho_settings.MEHO_DEFAULT_ENCODER)
-    encoder_string = request.POST.get('encoder-string', '')
+    # start transcoding job
+    encoder = rbody.get('encoder', meho_settings.MEHO_DEFAULT_ENCODER)
+    encoder_string = rbody.get('encoder-string', '')
     if encoder not in meho_settings.MEHO_ENCODERS:
         return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
 
