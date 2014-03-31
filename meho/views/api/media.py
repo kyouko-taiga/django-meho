@@ -27,7 +27,6 @@ from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
-from django.views.decorators.csrf import csrf_exempt
 from meho.auth import basic_http_auth
 from meho.core.encoders import load_encoder
 from meho.models import Media
@@ -47,11 +46,11 @@ def create(request, user, urn=None):
         return HttpResponseNotAllowed(['POST'])
 
     # retrieve request parameters
-    rbody = json.loads(request.body)
+    rbody = json.loads(request.body.decode('utf-8'))
 
     try:
-        urn         = rbody['media'].get('urn', uuid.uuid1().urn)
-        private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(out_urn))
+        urn         = urn or rbody['media'].get('urn', uuid.uuid1().urn)
+        private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(urn))
         media_type  = rbody['media'].get('media_type', '')
         parent      = rbody['media'].get('parent', None)
     except KeyError as e:
@@ -93,7 +92,7 @@ def transcode(request, user, urn):
     media_in = get_object_or_404(Media, urn=urn)
 
     # retrieve request parameters
-    rbody = json.loads(request.body)
+    rbody = json.loads(request.body.decode('utf-8'))
 
     try:
         out_urn         = rbody['media'].get('urn', uuid.uuid1().urn)
@@ -113,10 +112,10 @@ def transcode(request, user, urn):
     if encoder not in meho_settings.MEHO_ENCODERS:
         return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
 
-    encoder = load_encoder(meho_settings.MEHO_ENCODERS[encoder])
+    encoder = load_encoder(meho_settings.MEHO_ENCODERS[encoder])()
     encoder.transcode(media_in, media_out, encoder_string)
 
     # return the freshly created media
     json_serializer = serializers.get_serializer('json')()
-    response = json_serializer.serialize([media,], ensure_ascii=False, use_natural_keys=True)
+    response = json_serializer.serialize([media_out,], ensure_ascii=False, use_natural_keys=True)
     return HttpResponse(response, content_type='application/json')

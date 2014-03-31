@@ -105,7 +105,7 @@ class FileSystemVolumeDriver(VolumeDriver):
         assert name, 'The name argument is not allowed to be empty.'
 
         # write content to a temporary file
-        tmp_name = os.path.join(self.root, str(uuid.uuid4()))
+        tmp_name = os.path.join(meho_settings.MEHO_TEMP_ROOT, str(uuid.uuid4()))
         with open(tmp_name, 'wb') as tmp_file:
             shutil.copyfileobj(content, tmp_file)
 
