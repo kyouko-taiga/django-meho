@@ -26,7 +26,7 @@ class Media(models.Model):
     urn = URNField(primary_key=True, default=lambda: uuid.uuid1().urn)
     private_url = models.URLField()
     public_url = models.URLField(null=True)
-    media_type = models.CharField(max_length=100)
+    media_type = models.CharField(max_length=100, blank=True)
     parent = models.ForeignKey('self', null=True)
 
     def __str__(self):
