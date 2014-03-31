@@ -16,6 +16,9 @@
 # limitations under the License.
 
 import importlib
+import shutil
+
+from meho.core.volumes import VolumeSelector
 
 def load_encoder(encoder_name):
     module_name, class_name = encoder_name.rsplit('.', 1)
@@ -23,5 +26,12 @@ def load_encoder(encoder_name):
 
 class Copy(object):
 
-    def transcode(media_in, media_out, encoder_string):
-        cmd = 'cp {0} {1} {2}'.format(encoder_string, media_in)
+    def transcode(self, media_in, media_out, encoder_string=''):
+        # get file locators for input/output media
+        selector   = VolumeSelector()
+        volume_in  = selector.backend_for(selector.scheme(media_in.private_url))()
+        volume_out = selector.backend_for(selector.scheme(media_out.private_url))()
+
+        # copy input file into output
+        with volume_in.open(media_in.private_url, 'rb') as i:
+            volume_out.save(media_out.private_url, i)

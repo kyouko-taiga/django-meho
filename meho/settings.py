@@ -25,9 +25,9 @@ MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
     'copy': 'meho.core.encoders.Copy'
 })
 
-MEHO_FILE_LOCATORS = getattr(django_settings, 'MEHO_FILE_LOCATORS', {
-    'file': 'meho.core.files.FileSystemLocator',
-    'tmp': 'meho.core.files.TemporaryFileLocator',
+MEHO_VOLUME_BACKENDS = getattr(django_settings, 'MEHO_VOLUME_BACKENDS', {
+    'file': 'meho.core.volumes.FileSystemVolumeDriver',
+    'tmp': 'meho.core.volumes.TemporaryVolumeDriver',
 })
 
 MEHO_TEMP_ROOT = getattr(django_settings, 'MEHO_TEMP_ROOT', gettempdir())
