@@ -29,6 +29,16 @@ logger = logging.getLogger('meho')
 class FFmpeg(object):
 
     def transcode(self, media_in, media_out, encoder_string=''):
+        """
+        Transcodes ``media_in`` using ffmpeg with the profile specified by ``encoder_string``
+        and saves the transcoded media to the private url of ``media_out``.
+
+        This method is asynchronous and only returns the task identifier. Current progress status
+        can be obtained with ``meho.views.api.media.transcode_status``. 
+
+        .. note:: Transcoding relies on both ``ffmpeg`` and ``ffprobe`` binaries; those should be
+           available by the ``PATH`` variable.
+        """
         # get file locators for input/output media
         selector   = VolumeSelector()
         volume_in  = selector.backend_for(selector.scheme(media_in.private_url))()
@@ -72,7 +82,7 @@ class FFmpeg(object):
         t.start()
 
         logger.info('started ffmpeg job [%i]: %s' % (p.pid, cmd))
-        return p.pid
+        return 'tanscoding-task:{0}'.format(ffmpeg_proc.pid)
 
     def _handle_ffmpeg_task(self, ffmpeg_proc, input_info, media_out):
         """Handles the execution of a ffmpeg task.
