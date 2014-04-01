@@ -103,7 +103,7 @@ def transcode(request, user, urn):
 
     # create output media
     media_out = Media(urn=out_urn, private_url=out_private_url, media_type=out_media_type,
-        parent=media_in)
+        status='transcoding', parent=media_in)
     media_out.save()
 
     # start transcoding job

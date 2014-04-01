@@ -27,6 +27,7 @@ class Media(models.Model):
     private_url = models.URLField()
     public_url = models.URLField(null=True)
     media_type = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=100, blank=True, default='ready')
     parent = models.ForeignKey('self', null=True)
 
     def __str__(self):
