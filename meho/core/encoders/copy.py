@@ -15,19 +15,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.conf import settings as django_settings
-from tempfile import gettempdir
+from meho.core.volumes import VolumeSelector, TemporaryVolumeDriver
 
-MEHO_DEFAULT_ENCODER = getattr(django_settings, 'MEHO_DEFAULT_ENCODER', 'meho.encoders.FFmpeg')
+class Copy(object):
 
-MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
-    'ffmpeg': 'meho.core.encoders.FFmpeg',
-    'copy': 'meho.core.encoders.Copy'
-})
+    def transcode(self, media_in, media_out, encoder_string=''):
+        # get file locators for input/output media
+        selector   = VolumeSelector()
+        volume_in  = selector.backend_for(selector.scheme(media_in.private_url))()
+        volume_out = selector.backend_for(selector.scheme(media_out.private_url))()
 
-MEHO_VOLUME_BACKENDS = getattr(django_settings, 'MEHO_VOLUME_BACKENDS', {
-    'file': 'meho.core.volumes.FileSystemVolumeDriver',
-    'tmp': 'meho.core.volumes.TemporaryVolumeDriver',
-})
-
-MEHO_TEMP_ROOT = getattr(django_settings, 'MEHO_TEMP_ROOT', gettempdir())
+        # copy input file into output
+        with volume_in.open(media_in.private_url, 'rb') as i:
+            volume_out.save(media_out.private_url, i)

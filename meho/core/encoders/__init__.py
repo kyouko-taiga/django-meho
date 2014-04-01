@@ -16,22 +16,10 @@
 # limitations under the License.
 
 import importlib
-import shutil
 
-from meho.core.volumes import VolumeSelector
+from meho.core.encoders.copy import Copy
+from meho.core.encoders.ffmpeg import FFmpeg
 
 def load_encoder(encoder_name):
     module_name, class_name = encoder_name.rsplit('.', 1)
     return getattr(importlib.import_module(module_name), class_name)
-
-class Copy(object):
-
-    def transcode(self, media_in, media_out, encoder_string=''):
-        # get file locators for input/output media
-        selector   = VolumeSelector()
-        volume_in  = selector.backend_for(selector.scheme(media_in.private_url))()
-        volume_out = selector.backend_for(selector.scheme(media_out.private_url))()
-
-        # copy input file into output
-        with volume_in.open(media_in.private_url, 'rb') as i:
-            volume_out.save(media_out.private_url, i)
