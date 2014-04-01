@@ -18,6 +18,7 @@
 import errno
 import os
 import shutil
+import tempfile
 import uuid
 import meho.settings as meho_settings
 
@@ -54,6 +55,12 @@ class VolumeDriver(object):
             usr = netloc.split('@')[0]
             pwd = None
         return (usr, pwd)
+
+    def next_available_name(self):
+        """
+        Returns the next available free filename on the volume.
+        """
+        return str(uuid.uuid4())
 
     def open(self, name, mode='rb'):
         """
@@ -105,8 +112,8 @@ class FileSystemVolumeDriver(VolumeDriver):
         assert name, 'The name argument is not allowed to be empty.'
 
         # write content to a temporary file
-        tmp_name = os.path.join(meho_settings.MEHO_TEMP_ROOT, str(uuid.uuid4()))
-        with open(tmp_name, 'wb') as tmp_file:
+        (fd, tmp_name) = tempfile.mkstemp()
+        with open(fd, 'wb') as tmp_file:
             shutil.copyfileobj(content, tmp_file)
 
         # try to create a directory for the location specified by name if required
