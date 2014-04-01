@@ -30,4 +30,6 @@ urlpatterns = patterns('',
         'meho.views.api.media.single', name='api_media_single'),
     url(r'^api/media/(?P<urn>{0})/transcode/$'.format(urn_pattern),
         'meho.views.api.media.transcode', name='api_media_transcode'),
+
+    url(r'^api/tasks/(?P<task_id>.+)$', 'meho.views.api.tasks.single', name='api_task_single'),
 )

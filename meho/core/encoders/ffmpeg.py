@@ -34,7 +34,7 @@ class FFmpeg(object):
         and saves the transcoded media to the private url of ``media_out``.
 
         This method is asynchronous and only returns the task identifier. Current progress status
-        can be obtained with ``meho.views.api.media.transcode_status``. 
+        can be obtained with the tasks api.
 
         .. note:: Transcoding relies on both ``ffmpeg`` and ``ffprobe`` binaries; those should be
            available by the ``PATH`` variable.
@@ -82,7 +82,7 @@ class FFmpeg(object):
         t.start()
 
         logger.info('started ffmpeg job [%i]: %s' % (p.pid, cmd))
-        return 'tanscoding-task:{0}'.format(ffmpeg_proc.pid)
+        return 'task_ffmpeg_{0}'.format(p.pid)
 
     def _handle_ffmpeg_task(self, ffmpeg_proc, input_info, media_out):
         """Handles the execution of a ffmpeg task.
@@ -99,7 +99,7 @@ class FFmpeg(object):
         # update transcoding status every 0.1 second(s)
         UPDATE_TIME_DELTA = 0.1
 
-        cache.set('tanscoding-task:{0}'.format(ffmpeg_proc.pid), {
+        cache.set('task_ffmpeg_{0}'.format(ffmpeg_proc.pid), {
             'eta': 0,
             'progress': 0
         })
@@ -137,7 +137,7 @@ class FFmpeg(object):
                         eta_time = 0
 
                     # update process status
-                    cache.set('tanscoding-task:{0}'.format(ffmpeg_proc.pid), {
+                    cache.set('task_ffmpeg_{0}'.format(ffmpeg_proc.pid), {
                         'eta': eta_time,
                         'progress' : ratio * 100
                     })
@@ -161,12 +161,11 @@ class FFmpeg(object):
             media_out.status = 'failed'
         media_out.save()
 
-        cache.set('tanscoding-task:{0}'.format(ffmpeg_proc.pid), {
+        cache.set('task_ffmpeg_{0}'.format(ffmpeg_proc.pid), {
             'eta': 0,
             'progress' : 100
         })
 
-        print(ffmpeg_proc.stderr.read())
         logger.info('ffmpeg job [%i] exited with status %i' % (ffmpeg_proc.pid, status_code))
 
     def _local_copy(self, content):
