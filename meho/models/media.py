@@ -32,7 +32,7 @@ class Media(models.Model):
 
     def get_api_url(self):
         from django.core.urlresolvers import reverse
-        return reverse('meho_views_api_media_single', args=[str(self.id)])
+        return reverse('api_media_detail', kwargs={'pk': self.urn})
 
     def __str__(self):
         return self.urn
