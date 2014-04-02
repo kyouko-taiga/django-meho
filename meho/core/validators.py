@@ -18,11 +18,12 @@
 import re
 
 from django.core.exceptions import ValidationError
+from django.utils.translation import ugettext_lazy as _
 
 def validate_urn(value):
     """Validator for uniform resource name (URN) as defined in RFC 2141"""
 
     regex = r"urn:[a-zA-Z0-9][a-zA-Z0-9-]{1,31}:([a-zA-Z0-9()+,.:=@;$_!*'-]|%[0-9A-Fa-f]{2})+"
-    match = re.match(exp, regex)
+    match = re.match(regex, value)
     if not match:
-        raise ValidationError(_('Enter a valid URN, according to RFC 2141.'), code='invalid')
+        raise ValidationError(_('Enter a valid URN complying with RFC 2141.'), code='invalid')

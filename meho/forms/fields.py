@@ -23,4 +23,4 @@ class URNFormField(CharField):
 
     def clean(self, value):
         value = self.to_python(value).strip()
-        return super(URNField, self).clean(value)
+        return super(URNFormField, self).clean(value)
