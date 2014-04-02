@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import os
 import tempfile
 import uuid
@@ -24,12 +23,42 @@ import meho.settings as meho_settings
 from django.core import serializers
 from django.core.files.storage import default_storage
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from meho.auth import basic_http_auth
 from meho.core.encoders import load_encoder
+
+import json
+
+from django.http import HttpResponseBadRequest
+from django.views.generic import View
+from django.views.generic.edit import ModelFormMixin
+from django.utils.decorators import method_decorator
 from meho.models import Media
+from meho.views.api.crud import CrudView
+
+class MediaCrudView(CrudView):
+
+    model = Media
+    fields = ['urn', 'private_url', 'media_type', 'parent']
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def put(self, request, user, pk=None):
+        return super(MediaCrudView, self).put(request, *args, **kwargs)
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def get(self, request, user, pk=None):
+        return super(MediaCrudView, self).get(request, *args, **kwargs)
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def post(self, request, user, pk=None):
+        return super(MediaCrudView, self).post(request, *args, **kwargs)
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def delete(self, request, user, pk=None):
+        return super(MediaCrudView, self).delete(request, *args, **kwargs)
+
 
 @basic_http_auth(realm='api')
 def search(request, user):
