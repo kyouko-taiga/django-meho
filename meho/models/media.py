@@ -30,6 +30,10 @@ class Media(models.Model):
     status = models.CharField(max_length=100, blank=True, default='ready')
     parent = models.ForeignKey('self', null=True)
 
+    def get_api_url(self):
+        from django.core.urlresolvers import reverse
+        return reverse('meho_views_api_media_single', args=[str(self.id)])
+
     def __str__(self):
         return self.urn
 
