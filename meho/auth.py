@@ -20,13 +20,9 @@ import base64
 from django.contrib.auth import authenticate
 from django.http import HttpResponse
 
-class basic_http_auth(object):
-
-    def __init__(self, realm=''):
-        self.realm = realm
-
-    def __call__(self, f):
-        def wrap(request, *args, **kwargs):
+def basic_http_auth(realm=''):
+    def wrap(f):
+        def wrapped(*args, **kwargs):
             if request.META.get('HTTP_AUTHORIZATION', False):
                 auth_type, auth = request.META['HTTP_AUTHORIZATION'].split(' ')
                 auth = base64.b64decode(auth)
@@ -37,7 +33,8 @@ class basic_http_auth(object):
                 if user is not None:
                     return f(request, user, *args, **kwargs)
 
-            r = HttpResponse('Authentication required', status=401)
-            r['WWW-Authenticate'] = 'Basic realm="{0}"'.format(self.realm)
-            return r
-        return wrap
+            response = HttpResponse('Authentication required', status=401)
+            response['WWW-Authenticate'] = 'Basic realm=%' % realm
+            return response
+        return wrapped
+    return wrap
