@@ -261,7 +261,13 @@ class CrudView(CreateMixin, MultipleReadMixin, UpdateMixin, DeleteMixin, View):
 
         # otherwise if the requested path has a trailing '/', render a list of objects
         elif request.path[-1] == '/':
-            self.objects = self.get_objects()
+            queryset = self.get_queryset()
+            if request.GET:
+                # apply queryset filters if provided
+                from urllib.parse import unquote
+                queryset = queryset.filter(**{k: unquote(v) for k,v in request.GET.items()})
+
+            self.objects = self.get_objects(queryset)
             return self.render_objects()
 
         # if it's neither a request for a single nor multiple objects, raise a 404
