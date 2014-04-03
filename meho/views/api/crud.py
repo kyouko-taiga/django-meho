@@ -56,7 +56,7 @@ class SingleReadMixin(ReadMixin):
 
     def get_model_name(self):
         if self.model:
-            return self.model._meta.verbose_name.lower()
+            return self.model._meta.verbose_name
         else:
             raise ImproperlyConfigured(
                 "%(cls)s is missing a model. Define %(cls)s.model or override"
@@ -88,20 +88,15 @@ class SingleReadMixin(ReadMixin):
             # get the single item from the filtered queryset
             obj = queryset.get()
         except queryset.model.DoesNotExist:
-            raise Http404(_("No %(verbose_name)s found matching the query") %
-                          {'verbose_name': queryset.model._meta.verbose_name})
+            raise Http404("No %(verbose_name)s found matching the query" %
+                {'verbose_name': queryset.model._meta.verbose_name})
         return obj
 
     def render_object(self, status=200):
         if not hasattr(self, 'object'):
             self.object = self.get_object()
 
-        response = {
-            'status': 'success',
-            'data': {
-                self.get_model_name(): model_to_dict(self.object)
-            }
-        }
+        response = { self.get_model_name(): model_to_dict(self.object) }
         return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
 class MultipleReadMixin(ReadMixin):
@@ -109,14 +104,14 @@ class MultipleReadMixin(ReadMixin):
 
     def get_model_name_plural(self):
         if self.model:
-            return self.model._meta.verbose_name_plural.lower()
+            return self.model._meta.verbose_name_plural
         else:
             raise ImproperlyConfigured(
                 "%(cls)s is missing a model. Define %(cls)s.model or override"
                 "%(cls)s.get_model_name()." % {'cls': self.__class__.__name__}
             )
 
-    def get_objects(self):
+    def get_objects(self, queryset=None):
         """
         Returns the objects the view is rendering.
 
@@ -131,12 +126,7 @@ class MultipleReadMixin(ReadMixin):
         if not hasattr(self, 'objects'):
             self.objects = self.get_objects()
 
-        response = {
-            'status': 'success',
-            'data': {
-                self.get_model_name_plural(): [model_to_dict(o) for o in self.objects]
-            }
-        }
+        response = { self.get_model_name_plural(): [model_to_dict(o) for o in self.objects] }
         return HttpResponse(json.dumps(response), status=status, content_type='application/json')
 
 class EditMixin(SingleReadMixin):
@@ -144,17 +134,16 @@ class EditMixin(SingleReadMixin):
 
     fields = None
 
-    def get_object_kwargs(self):
-        try:
-            jrq_body = json.loads(request.body.decode('utf-8'))
-        except ValueError:
-            return self.invalid_request_body()
+    def parse_request_body(self):
+        return json.loads(self.request.body.decode('utf-8')) 
 
+    def get_object_kwargs(self):
+        rq_body = self.parse_request_body()
         model_name = self.get_model_name()
-        if model_name in jrq_body and isinstance(jrq_body[model_name], Mapping):
-            return {k:v for k,v in jrq_body[model_name].items() if k in fields}
+        if model_name in rq_body and isinstance(rq_body[model_name], Mapping):
+            return {k:v for k,v in rq_body[model_name].items() if k in self.fields}
         else:
-            return self.invalid_request_body()
+            raise ValueError("Request data must contain a %s object." % self.get_model_name())
 
     def validate_object(self):
         if not hasattr(self, 'object'):
@@ -165,19 +154,30 @@ class EditMixin(SingleReadMixin):
             return e.error_dict
         return None
 
-    def invalid_request_body(self):
+    def invalid_request_body(self, reason=None):
         response = {
             'status': 'error',
-            'message': 'Invalid request body.'
+            'message': 'Invalid request body.',
+            'data': {
+                'reason': reason
+            }
         }
         return HttpResponse(json.dumps(response), status=400, content_type='application/json')
 
     def invalid_object(self, errors):
+        errors_data = {}
+        for field in errors:
+            field_data = []
+            for e in errors[field]:
+                e = ValidationError(e)
+                field_data.append({'message': e.messages[0], 'code': e.code})
+            errors_data[field] = field_data
+
         response = {
             'status': 'error',
             'message': 'Invalid %s object.' % self.get_model_name(),
             'data': {
-                'errors': errors
+                'errors': errors_data
             }
         }
         return HttpResponse(json.dumps(response), status=400, content_type='application/json')
@@ -187,7 +187,11 @@ class CreateMixin(EditMixin):
 
     def create_object(self, override=False):
         # create and validate new object
-        self.object = self.model(**self.get_object_kwargs())
+        try:
+            object_kwargs = self.get_object_kwargs()
+        except ValueError as e:
+            return self.invalid_request_body(str(e))
+        self.object = self.model(**object_kwargs)
         errors = self.validate_object()
         if errors:
             return self.invalid_object(errors)
@@ -199,6 +203,7 @@ class CreateMixin(EditMixin):
                 if override:
                     # delete existing instance
                     existing_object.delete()
+                    self.object.pk = self.kwargs[self.pk_url_kwarg]
                 else:
                     return self.duplicate_object(existing_object)
             except Http404: pass
@@ -219,7 +224,12 @@ class UpdateMixin(EditMixin):
 
     def update_object(self):
         self.object = self.get_object()
-        for field, value in self.get_object_kwargs():
+        try:
+            object_kwargs = self.get_object_kwargs()
+        except ValueError as e:
+            return self.invalid_request_body(str(e))
+        
+        for field, value in object_kwargs.items():
             setattr(self.object, field, value)
         errors = self.validate_object()
         if errors:
@@ -244,12 +254,18 @@ class CrudView(CreateMixin, MultipleReadMixin, UpdateMixin, DeleteMixin, View):
         return self.create_object(override=kwargs.get('override', False))
 
     def get(self, request, *args, **kwargs):
+        # if a pk has been provided, render a single object
         if self.pk_url_kwarg in self.kwargs:
             self.object = self.get_object()
             return self.render_object()
-        else:
+
+        # otherwise if the requested path has a trailing '/', render a list of objects
+        elif request.path[-1] == '/':
             self.objects = self.get_objects()
             return self.render_objects()
+
+        # if it's neither a request for a single nor multiple objects, raise a 404
+        raise Http404()
 
     def post(self, request, *args, **kwargs):
         return self.update_object()

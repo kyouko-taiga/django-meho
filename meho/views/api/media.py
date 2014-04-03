@@ -45,19 +45,21 @@ class MediaCrudView(CrudView):
 
     @method_decorator(basic_http_auth(realm='api'))
     def put(self, request, user, pk=None):
-        return super(MediaCrudView, self).put(request, *args, **kwargs)
+        rq_body = self.parse_request_body()
+        override = rq_body['override'] if 'override' in rq_body else False
+        return super(MediaCrudView, self).put(request, override=override)
 
     @method_decorator(basic_http_auth(realm='api'))
     def get(self, request, user, pk=None):
-        return super(MediaCrudView, self).get(request, *args, **kwargs)
+        return super(MediaCrudView, self).get(request)
 
     @method_decorator(basic_http_auth(realm='api'))
     def post(self, request, user, pk=None):
-        return super(MediaCrudView, self).post(request, *args, **kwargs)
+        return super(MediaCrudView, self).post(request)
 
     @method_decorator(basic_http_auth(realm='api'))
     def delete(self, request, user, pk=None):
-        return super(MediaCrudView, self).delete(request, *args, **kwargs)
+        return super(MediaCrudView, self).delete(request)
 
 
 @basic_http_auth(realm='api')

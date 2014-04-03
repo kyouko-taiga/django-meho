@@ -23,28 +23,34 @@ from meho.models.fields import URNField
 
 class Media(models.Model):
 
-    urn = URNField(primary_key=True, default=lambda: uuid.uuid1().urn)
-    private_url = models.URLField()
-    public_url = models.URLField(null=True)
-    media_type = models.CharField(max_length=100, blank=True)
-    status = models.CharField(max_length=100, blank=True, default='ready')
-    parent = models.ForeignKey('self', null=True)
+    urn         = URNField(primary_key=True, default=lambda: uuid.uuid1().urn)
+    public_url  = models.URLField(blank=True)
+    media_type  = models.CharField(max_length=100, blank=True)
+    status      = models.CharField(max_length=100, blank=True, default='ready')
+    parent      = models.ForeignKey('self', blank=True, null=True)
+
+    # Expected syntax for private_url is actually the same as the URL syntax as
+    # defined in RFC 3986. However, since django built-in URLField only accepts
+    # 'http', 'https', 'ftp' and 'ftps' as valid schemes, ``private_url`` fields
+    # can't use the same validator.
+    private_url = models.CharField(max_length=200)
 
     def get_api_url(self):
         from django.core.urlresolvers import reverse
-        return reverse('api_media_detail', kwargs={'pk': self.urn})
+        return reverse('api_media_one', kwargs={'pk': self.urn})
 
     def __str__(self):
         return self.urn
 
     class Meta:
         app_label = 'meho'
+        verbose_name_plural = 'media'
 
 class Metadata(models.Model):
 
-    media = models.ForeignKey(Media)
-    name = models.CharField(max_length=200)
-    content = models.CharField(max_length=200)
+    media       = models.ForeignKey(Media)
+    name        = models.CharField(max_length=200)
+    content     = models.CharField(max_length=200)
 
     def __str__(self):
         return '{0}.{1}: {2}'.format(media, name, content)
