@@ -56,6 +56,12 @@ class VolumeDriver(object):
             pwd = None
         return (usr, pwd)
 
+    def filename(self, name):
+        """
+        Returns the filename supplied whithin ``name``, as read by the volume.
+        """
+        return urlparse.urlparse(name).path
+
     def next_available_name(self):
         """
         Returns the next available free filename on the volume.
@@ -160,7 +166,7 @@ class FileSystemVolumeDriver(VolumeDriver):
         return directories, files
 
     def path(self, name):
-        return urlparse.urlparse(name).path
+        return self.filename(name)
 
 class TemporaryVolumeDriver(FileSystemVolumeDriver):
 
@@ -168,7 +174,7 @@ class TemporaryVolumeDriver(FileSystemVolumeDriver):
         self.root = root or meho_settings.MEHO_TEMP_ROOT
 
     def path(self, name):
-        return safe_join(self.root, urlparse.urlparse(name).path.lstrip('/'))
+        return safe_join(self.root, self.filename(name).lstrip('/'))
 
 class VolumeSelector(object):
 

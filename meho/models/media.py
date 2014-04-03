@@ -39,6 +39,21 @@ class Media(models.Model):
         from django.core.urlresolvers import reverse
         return reverse('api_media_one', kwargs={'pk': self.urn})
 
+    def clean(self):
+        # try to guess the media type if not provided
+        if not self.media_type and self.private_url:
+            from meho.core.volumes import VolumeSelector
+            from mimetypes import guess_type
+
+            selector = VolumeSelector()
+            volume = selector.backend_for(selector.scheme(self.private_url))()
+            mime, encoding = guess_type(volume.filename(self.private_url))
+            if mime:
+                self.media_type = mime
+            if encoding:
+                self.media_type += '; ' if mime else ''
+                self.media_type += encoding
+
     def __str__(self):
         return self.urn
 
