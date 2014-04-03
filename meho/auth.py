@@ -22,7 +22,7 @@ from django.http import HttpResponse
 
 def basic_http_auth(realm=''):
     def wrap(f):
-        def wrapped(*args, **kwargs):
+        def wrapped(request, *args, **kwargs):
             if request.META.get('HTTP_AUTHORIZATION', False):
                 auth_type, auth = request.META['HTTP_AUTHORIZATION'].split(' ')
                 auth = base64.b64decode(auth)
@@ -34,7 +34,7 @@ def basic_http_auth(realm=''):
                     return f(request, user, *args, **kwargs)
 
             response = HttpResponse('Authentication required', status=401)
-            response['WWW-Authenticate'] = 'Basic realm=%' % realm
+            response['WWW-Authenticate'] = 'Basic realm=%s' % realm
             return response
         return wrapped
     return wrap
