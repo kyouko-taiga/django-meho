@@ -28,13 +28,8 @@ urlpatterns = patterns('',
     url(r'^media$', media.MediaCrudView.as_view(), name='api_media_unnamed'),
     url(r'^media/$', media.MediaCrudView.as_view(), name='api_media_list'),
     url(r'^media/(?P<pk>%s)$' % URN_REGEX, media.MediaCrudView.as_view(), name='api_media_one'),
-
-    #url(r'^media$', 'meho.views.api.media.create', name='api_media_create'),
-    #url(r'^media/$', 'meho.views.api.media.search', name='api_media_search'),
-    #url(r'^media/(?P<urn>{0})$'.format(URN_REGEX),
-    #    'meho.views.api.media.single', name='api_media_single_old'),
-    #url(r'^media/(?P<urn>{0})/transcode/$'.format(URN_REGEX),
-    #    'meho.views.api.media.transcode', name='api_media_transcode'),
+    url(r'^media/(?P<pk>%s)/transcode$'  % URN_REGEX,
+        media.TranscodeView.as_view(), name='api_media_transcode'),
 
     url(r'^tasks/(?P<task_id>.+)$', 'meho.views.api.tasks.single', name='api_task_single'),
 )

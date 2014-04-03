@@ -36,7 +36,7 @@ from django.views.generic import View
 from django.views.generic.edit import ModelFormMixin
 from django.utils.decorators import method_decorator
 from meho.models import Media
-from meho.views.api.crud import CrudView
+from meho.views.api.crud import EditMixin, CrudView
 
 class MediaCrudView(CrudView):
 
@@ -61,92 +61,45 @@ class MediaCrudView(CrudView):
     def delete(self, request, user, pk=None):
         return super(MediaCrudView, self).delete(request)
 
+class TranscodeView(EditMixin, View):
 
-@basic_http_auth(realm='api')
-def search(request, user):
-    # get a queryset over all media, with optional filters
-    objects = Media.objects.filter(**{k: v for k,v in request.GET.items()})
+    model = Media
+    fields = ['urn', 'private_url', 'media_type']
 
-    json_serializer = serializers.get_serializer('json')()
-    response = json_serializer.serialize(objects, ensure_ascii=False, use_natural_keys=True)
-    return HttpResponse(response, content_type='application/json')
+    @method_decorator(basic_http_auth(realm='api'))
+    def post(self, request, user, pk):
+        if request.method != 'POST':
+            return HttpResponseNotAllowed(['POST'])
 
-@basic_http_auth(realm='api')
-def create(request, user, urn=None):
-    if request.method != 'POST':
-        return HttpResponseNotAllowed(['POST'])
+        # retrieve input media
+        media_in = get_object_or_404(Media, urn=pk)
 
-    # retrieve request parameters
-    rbody = json.loads(request.body.decode('utf-8'))
+        # retrieve request parameters
+        rq_body = self.parse_request_body()
+        media_out_kwargs = self.get_object_kwargs()
 
-    try:
-        urn         = urn or rbody['media'].get('urn', uuid.uuid1().urn)
-        private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(urn))
-        media_type  = rbody['media'].get('media_type', '')
-        parent      = rbody['media'].get('parent', None)
-    except KeyError as e:
-        return HttpResponseBadRequest(str(e) + ' is required.')
+        try:
+            out_urn         = media_out_kwargs.get('urn', uuid.uuid1().urn)
+            out_private_url = media_out_kwargs['private_url']
+            out_media_type  = media_out_kwargs.get('media_type', '')
+        except KeyError as e:
+            return self.invalid_request_body(str(e))
 
-    # create the new media
-    media = Media(urn=urn, private_url=private_url, media_type=media_type, parent=parent)
-    media.save()
+        # create output media
+        media_out = Media(urn=out_urn, private_url=out_private_url, media_type=out_media_type,
+            status='transcoding', parent=media_in)
+        media_out.save()
 
-    # return the freshly created media
-    json_serializer = serializers.get_serializer('json')()
-    response = json_serializer.serialize([media,], ensure_ascii=False, use_natural_keys=True)
-    return HttpResponse(response, content_type='application/json')
+        # start transcoding job
+        encoder = rq_body.get('encoder', meho_settings.MEHO_DEFAULT_ENCODER)
+        encoder_string = rq_body.get('encoder-string', '')
+        if encoder not in meho_settings.MEHO_ENCODERS:
+            return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
 
-@basic_http_auth(realm='api')
-def single(request, user, urn):
-    # create a new media object
-    if request.method == 'POST':
-        return create(request, uuid=media_uuid)
+        encoder = load_encoder(meho_settings.MEHO_ENCODERS[encoder])()
+        encoder.transcode(media_in, media_out, encoder_string)
 
-    # retrieve media object from its urn
-    media = get_object_or_404(Media, urn=urn)
-    json_serializer = serializers.get_serializer('json')()
-    response = json_serializer.serialize([media,], ensure_ascii=False, use_natural_keys=True)
-
-    # delete the media object is method is DELETE
-    if request.method == 'DELETE':
-        media.delete()
-
-    # returns the retrieved object
-    return HttpResponse(response, content_type='application/json')
-
-@basic_http_auth(realm='api')
-def transcode(request, user, urn):
-    if request.method != 'POST':
-        return HttpResponseNotAllowed(['POST'])
-
-    # retrieve input media
-    media_in = get_object_or_404(Media, urn=urn)
-
-    # retrieve request parameters
-    rbody = json.loads(request.body.decode('utf-8'))
-
-    try:
-        out_urn         = rbody['media'].get('urn', uuid.uuid1().urn)
-        out_private_url = rbody['media'].get('private_url', 'tmp:///' + slugify(out_urn))
-        out_media_type  = rbody['media'].get('media_type', '')
-    except KeyError as e:
-        return HttpResponseBadRequest(str(e) + ' is required.')
-
-    # create output media
-    media_out = Media(urn=out_urn, private_url=out_private_url, media_type=out_media_type,
-        status='transcoding', parent=media_in)
-    media_out.save()
-
-    # start transcoding job
-    encoder = rbody.get('encoder', meho_settings.MEHO_DEFAULT_ENCODER)
-    encoder_string = rbody.get('encoder-string', '')
-    if encoder not in meho_settings.MEHO_ENCODERS:
-        return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
-
-    encoder = load_encoder(meho_settings.MEHO_ENCODERS[encoder])()
-    encoder.transcode(media_in, media_out, encoder_string)
-
-    # return the freshly created media
-    json_serializer = serializers.get_serializer('json')()
-    response = json_serializer.serialize([media_out,], ensure_ascii=False, use_natural_keys=True)
-    return HttpResponse(response, content_type='application/json')
+        # return the freshly created media
+        json_serializer = serializers.get_serializer('json')()
+        response = json_serializer.serialize([media_out,], ensure_ascii=False, use_natural_keys=True)
+        return HttpResponse(response, content_type='application/json')

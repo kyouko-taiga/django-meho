@@ -135,7 +135,7 @@ class EditMixin(SingleReadMixin):
     fields = None
 
     def parse_request_body(self):
-        return json.loads(self.request.body.decode('utf-8')) 
+        return json.loads(self.request.body.decode('utf-8'))
 
     def get_object_kwargs(self):
         rq_body = self.parse_request_body()
