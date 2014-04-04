@@ -49,14 +49,14 @@ class FFmpeg(object):
             input_file = volume_in.path(media_in.private_url)
         except NotImplementedError:
             with volume_in.open(media_in.private_url) as f:
-                input_file = _local_copy(f)
+                input_file = self._local_copy(f)
 
         # retrieve an accessible absolute path to the output media
         try:
             output_file = volume_out.path(media_out.private_url)
         except NotImplementedError:
             with volume_out.open(media_out.private_url) as f:
-                output_file = _local_copy(f)
+                output_file = self._local_copy(f)
 
         # start ffmpeg task
         return self._start_ffmpeg_task(input_file, output_file, encoder_string, media_out)
