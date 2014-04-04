@@ -28,7 +28,7 @@ from meho.auth import basic_http_auth
 from meho.models import Media
 from meho.core.encoders import load_encoder
 from meho.core.publishers import PublisherSelector
-from meho.views.api.crud import EditMixin, CrudView
+from meho.views.api.crud import ReadMixin, EditMixin, CrudView
 
 class MediaCrudView(CrudView):
 
@@ -69,7 +69,7 @@ class TranscodeView(EditMixin, View):
         media_out_kwargs['status'] = 'transcoding'
         media_out_kwargs['parent'] = media_in
         if 'private_url' not in media_out_kwargs:
-            return self.invalid_request_body('Output private_url is required.')
+            return self.invalid_request_body('Output private_url is required')
 
         # create output media
         media_out = Media(**media_out_kwargs)
@@ -77,7 +77,7 @@ class TranscodeView(EditMixin, View):
 
         # start transcoding job
         encoder = rq_body.get('encoder', meho_settings.MEHO_DEFAULT_ENCODER)
-        encoder_string = rq_body.get('encoder-string', '')
+        encoder_string = rq_body.get('encoder_string', '')
         if encoder not in meho_settings.MEHO_ENCODERS:
             return HttpResponseBadRequest(encoder + ' is not a valid encoder.')
 
@@ -86,4 +86,48 @@ class TranscodeView(EditMixin, View):
 
         # return the freshly created media
         self.object = media_out
+        return self.render_object()
+
+class PublishView(EditMixin, View):
+
+    model = Media
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def post(self, request, user, pk):
+        rq_body = self.parse_request_body()
+        if 'publisher' not in rq_body:
+            return self.invalid_request_body('publisher is required')
+        if 'publisher_options' not in rq_body:
+            return self.invalid_request_body('publisher_options is required')
+
+        publisher = PublisherSelector().backend_for(rq_body['publisher'])()
+        publisher_options = rq_body['publisher_options']
+
+        self.object = self.get_object()
+        try:
+            publisher.publish(self.object, **publisher_options)
+        except ValueError as e:
+            return self.invalid_request_body(str(e))
+
+        return self.render_object()
+
+class UnpublishView(EditMixin, View):
+
+    model = Media
+
+    @method_decorator(basic_http_auth(realm='api'))
+    def post(self, request, user, pk):
+        rq_body = self.parse_request_body()
+        if 'publisher' not in rq_body:
+            return self.invalid_request_body('publisher is required')
+
+        publisher = PublisherSelector().backend_for(rq_body['publisher'])()
+        publisher_options = rq_body.get('publisher_options', {})
+
+        self.object = self.get_object()
+        try:
+            publisher.unpublish(self.object, **publisher_options)
+        except ValueError:
+            self.invalid_request_body(str(e))
+
         return self.render_object()
