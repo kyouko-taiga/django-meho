@@ -23,7 +23,7 @@ URN_REGEX = r"urn:[a-zA-Z0-9][a-zA-Z0-9-]{1,31}:([a-zA-Z0-9()+,.:=@;$_!*'-]|%[0-
 urlpatterns = patterns('',
     url(r'^version$', 'meho.views.api.version', name='api_version'),
 
-    url(r'^files/(?P<filename>[\w\-\./]+)$', 'meho.views.api.upload', name='api_file_upload'),
+    url(r'^files/(?P<filename>[\w\-\./]+)$', 'meho.views.api.file.upload', name='api_file_upload'),
 
     url(r'^media$', media.MediaCrudView.as_view(), name='api_media_unnamed'),
     url(r'^media/$', media.MediaCrudView.as_view(), name='api_media_list'),
