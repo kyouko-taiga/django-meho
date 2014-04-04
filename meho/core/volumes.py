@@ -31,6 +31,10 @@ except:
 
 class VolumeDriver(object):
 
+    @property
+    def volume_scheme(self):
+        raise NotImplementedError()
+
     def scheme(self, name):
         """
         Returns the URL scheme of the file specified by ``name``.
@@ -111,6 +115,10 @@ class VolumeDriver(object):
 
 class FileSystemVolumeDriver(VolumeDriver):
 
+    @property
+    def volume_scheme(self):
+        return 'file'
+
     def open(self, name, mode='rb'):
         return open(self.path(name), mode=mode)
 
@@ -172,6 +180,10 @@ class TemporaryVolumeDriver(FileSystemVolumeDriver):
 
     def __init__(self, root=None):
         self.root = root or meho_settings.MEHO_TEMP_ROOT
+
+    @property
+    def volume_scheme(self):
+        return 'tmp'
 
     def path(self, name):
         return safe_join(self.root, self.filename(name).lstrip('/'))
