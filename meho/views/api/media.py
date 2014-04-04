@@ -15,27 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import tempfile
-import uuid
+import json
+import os, tempfile
 import meho.settings as meho_settings
 
-from django.core import serializers
-from django.core.files.storage import default_storage
-from django.conf import settings
-from django.http import HttpResponse, HttpResponseNotAllowed
-from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
-from meho.auth import basic_http_auth
-from meho.core.encoders import load_encoder
-
-import json
-
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.generic import View
 from django.views.generic.edit import ModelFormMixin
 from django.utils.decorators import method_decorator
+
+from meho.auth import basic_http_auth
 from meho.models import Media
+from meho.core.encoders import load_encoder
+from meho.core.publishers import PublisherSelector
 from meho.views.api.crud import EditMixin, CrudView
 
 class MediaCrudView(CrudView):
@@ -68,26 +60,19 @@ class TranscodeView(EditMixin, View):
 
     @method_decorator(basic_http_auth(realm='api'))
     def post(self, request, user, pk):
-        if request.method != 'POST':
-            return HttpResponseNotAllowed(['POST'])
-
         # retrieve input media
-        media_in = get_object_or_404(Media, urn=pk)
+        media_in = self.get_object()
 
         # retrieve request parameters
         rq_body = self.parse_request_body()
         media_out_kwargs = self.get_object_kwargs()
-
-        try:
-            out_urn         = media_out_kwargs.get('urn', uuid.uuid1().urn)
-            out_private_url = media_out_kwargs['private_url']
-            out_media_type  = media_out_kwargs.get('media_type', '')
-        except KeyError as e:
-            return self.invalid_request_body(str(e))
+        media_out_kwargs['status'] = 'transcoding'
+        media_out_kwargs['parent'] = media_in
+        if 'private_url' not in media_out_kwargs:
+            return self.invalid_request_body('Output private_url is required.')
 
         # create output media
-        media_out = Media(urn=out_urn, private_url=out_private_url, media_type=out_media_type,
-            status='transcoding', parent=media_in)
+        media_out = Media(**media_out_kwargs)
         media_out.save()
 
         # start transcoding job
@@ -100,6 +85,5 @@ class TranscodeView(EditMixin, View):
         encoder.transcode(media_in, media_out, encoder_string)
 
         # return the freshly created media
-        json_serializer = serializers.get_serializer('json')()
-        response = json_serializer.serialize([media_out,], ensure_ascii=False, use_natural_keys=True)
-        return HttpResponse(response, content_type='application/json')
+        self.object = media_out
+        return self.render_object()
