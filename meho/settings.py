@@ -30,4 +30,8 @@ MEHO_VOLUME_BACKENDS = getattr(django_settings, 'MEHO_VOLUME_BACKENDS', {
     'tmp': 'meho.core.volumes.TemporaryVolumeDriver',
 })
 
+MEHO_PUBLISHER_BACKENDS = getattr(django_settings, 'MEHO_PUBLISHER_BACKENDS', {
+    'symlink_or_copy': 'meho.core.publishers.SymlinkOrCopyPublisher',
+})
+
 MEHO_TEMP_ROOT = getattr(django_settings, 'MEHO_TEMP_ROOT', gettempdir())

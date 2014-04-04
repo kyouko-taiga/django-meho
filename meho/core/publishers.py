@@ -16,8 +16,10 @@
 # limitations under the License.
 
 import errno, os, shutil
+import meho.settings as meho_settings
 
 from django.conf import settings
+from django.utils.module_loading import import_by_path
 from django.utils.six.moves.urllib.parse import urljoin
 from django.utils._os import safe_join, abspathu
 from meho.core.volumes import VolumeSelector
@@ -116,4 +118,20 @@ class SymlinkOrCopyPublisher(object):
         (fd, tmp_name) = tempfile.mkstemp()
         with open(fd, 'wb') as tmp_file:
             shutil.copyfileobj(content, tmp_file)
-        return tmp_name    
+        return tmp_name
+
+class PublisherSelector(object):
+
+    def __init__(self, backends=None):
+        if not backends:
+            backends = meho_settings.MEHO_PUBLISHER_BACKENDS
+        self.backends = {}
+
+        for name, backend in backends.items():
+            self.backends[name] = import_by_path(backend)
+
+    def backend_for(self, name):
+        """
+        Returns the backend class that handles ``name``.
+        """
+        return self.backends[name]
