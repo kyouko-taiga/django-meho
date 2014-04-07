@@ -18,6 +18,7 @@
 import json
 
 from collections.abc import Mapping
+from django.db import models
 from django.db.models.fields import CharField, TextField
 from django.utils.translation import ugettext_lazy as _
 from meho.core import validators
@@ -36,7 +37,7 @@ class URNField(CharField):
         defaults.update(kwargs)
         return super(CharField, self).formfield(**defaults)
 
-class CredentialsField(TextField):
+class CredentialsField(TextField, metaclass=models.SubfieldBase):
 
     description = _('Dictionary-like object to contain credentials.')
 
@@ -46,7 +47,7 @@ class CredentialsField(TextField):
     def to_python(self, value):
         if isinstance(value, Mapping):
             return value
-        return json.loads(value)
+        return json.loads(value.decode('utf-8'))
     
     def get_prep_value(self, value):
-        return json.dumps(value)
+        return json.dumps(value).encode('utf-8')
