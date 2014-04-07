@@ -34,4 +34,9 @@ MEHO_PUBLISHER_BACKENDS = getattr(django_settings, 'MEHO_PUBLISHER_BACKENDS', {
     'symlink_or_copy': 'meho.core.publishers.SymlinkOrCopyPublisher',
 })
 
+MEHO_AUTH_BACKENDS = getattr(django_settings, 'MEHO_AUTH_BACKENDS', {
+    'basic': 'requests.auth.HTTPBasiAuth',
+    'digest': 'requests.auth.HTTPDigestAuth'
+})
+
 MEHO_TEMP_ROOT = getattr(django_settings, 'MEHO_TEMP_ROOT', gettempdir())

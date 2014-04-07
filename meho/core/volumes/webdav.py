@@ -15,93 +15,122 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re, requests
-from meho.core.volumes.base import VolumeDriver
+import re, requests, tempfile
+import meho.settings as meho_settings
 
+from django.core.exceptions import ImproperlyConfigured
+from django.core.files.base import File
+from django.utils.module_loading import import_by_path
+from meho.core.volumes.base import VolumeDriver
 try:
+    from io import StringIO
     from urllib import parse as urlparse
 except:
+    import StringIO
     import urlparse
 
 class WebdavVolumeDriver(VolumeDriver):
+
+    def __init__(self):
+        self._credential_set = CredentialManager()
 
     @property
     def volume_scheme(self):
         return 'http'
 
     def open(self, name, mode='rb'):
-        return open(self.path(name), mode=mode)
+        assert name, 'The name argument is not allowed to be empty.'
+        return WebdavFileWrapper(self, name)
 
     def save(self, name, content):
         assert name, 'The name argument is not allowed to be empty.'
-
-        # write content to a temporary file
-        (fd, tmp_name) = tempfile.mkstemp()
-        with open(fd, 'wb') as tmp_file:
-            shutil.copyfileobj(content, tmp_file)
-
-        # try to create a directory for the location specified by name if required
-        full_path = self.path(name)
-        directory = os.path.dirname(full_path)
-        if not os.path.exists(directory):
-            try:
-                os.makedirs(directory)
-            except OSError as e:
-                if e.errno != errno.EEXIST:
-                    raise
-        if not os.path.isdir(directory):
-            raise IOError('%s exists and is not a directory.' % directory)
-
-        # move the temporary file to the location specified by name
-        os.rename(tmp_name, full_path)
+        self._write(name, content)
 
     def delete(self, name):
         assert name, 'The name argument is not allowed to be empty.'
-        name = self.path(name)
-
-        # If the file exists, delete it from the filesystem.
-        # Note that there is a race between os.path.exists and os.remove:
-        # if os.remove fails with ENOENT, the file was removed
-        # concurrently, and we can continue normally.
-        if os.path.exists(name):
-            try:
-                os.remove(name)
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
+        self._delete(name)
 
     def exists(self, name):
-        return os.path.exists(self.path(name))
+        assert name, 'The name argument is not allowed to be empty.' 
+        try:
+            self._head(name)
+        except:
+            return False
+        return True
 
-    def listdir(self, path):
-        path = self.path(path)
-        directories, files = [], []
-        for entry in os.listdir(path):
-            if os.path.isdir(os.path.join(path, entry)):
-                directories.append(entry)
-            else:
-                files.append(entry)
-        return directories, files
+    def url(self, name):
+        return re.sub(r'\/\/.*:?.*@', '//', name)
 
-    def path(self, name):
-        return self.filename(name)
+    def _read(self, name):
+        # first try to get resource without any authentication
+        req = _retry_if_auth('GET', self.url(name))
 
-    def _build_password_manager(self):
-        password_manager = urlrequest.HTTPPasswordMgrWithDefaultRealm()
-        credential_manager = CredentialManager()
-        for c in credential_manager.filter(scheme='http'):
-            password_manager.add_password(c.realm, c.uri, c.username, c.password)
-        return password_manager
+        temporary_file = tempfile.TemporaryFile()
+        for chunk in req.iter_content(chunk_size=1024)
+            if chunk:
+                temporary_file.write(chunk)
+                temporary_file.flush()
+        temporary_file.seek(0)
+        return temporary_file
 
-class WebdavFile(object):
+    def _write(self, name, content):
+        req = _retry_if_auth('PUT', self.url(name), data=content)
 
-    def __init__(self, name, mode, volume_driver):
-        self._name = name
-        self._mode = mode
+    def _delete(self, name):
+        req = _retry_if_auth('DELETE', self.url(name))
+
+    def _head(self, name):
+        req = _retry_if_auth('HEAD', self.url(name))
+
+    def _retry_if_auth(self, method, url, **kwargs):
+        req = requests.request(method, url, **kwargs)
+
+        # if server returned 401, retry with authentication credentials
+        if req.status_code == '401':
+            kwargs['auth'] = self._get_auth_handler(name, req)
+            req = requests.request(method, url, **kwargs)
+        if req.status_code != '200':
+            req.raise_for_status()
+        return req
+
+    def _get_auth_handler(self, name, request):
+        auth_scheme = request.headers['WWW-Authenticate'].split(' ')[0]
+        credentials = self.credentials(name)
+
+        # if credentials are not provided within the file name, we try to get
+        # them from the credential manager
+        if credentials is None:
+            origin = self.netlock(name)
+            credentials = self._credential_set.get(scheme=auth_scheme, origin=origin)
+
+        if credentials:
+            auth_class = meho_settings.MEHO_AUTH_BACKENDS['auth_scheme']
+            return import_by_path(auth_class)(**credentials)
+        else:
+            raise ImproperlyConfigured(
+                'No authentication credentials for %(origin)s with scheme'
+                '%(scheme)s. Either provide credentials within the file'
+                'name or set credentials for (%(origin)s, %(scheme)s)' % {
+                    'origin': origin,
+                    'scheme': auth_scheme
+                })
+
+class WebdavFileWrapper(object):
+
+    def __init__(self, volume_driver, name):
         self._volume_driver = volume_driver
-        self._temporary = None
+        self._name = name
+        self._file = None
 
-    def read(self, size):
-        if not self._temporary:
-            # get a local copy of the remote file
-            pass
+    def __getattr__(self, name):
+        if self._file is None:
+            self._file = self._volume_driver._read(self._name)
+        if hasattr(self, name):
+            return getattr(self, name)
+        else:
+            return getattr(self._file, name)
+
+    def close(self):
+        self._file.seek(0)
+        self._volume_driver._write(self._name, self._file)
+        return self._file.close()
