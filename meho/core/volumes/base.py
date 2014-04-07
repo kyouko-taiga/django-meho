@@ -37,7 +37,10 @@ class VolumeDriver(object):
         Returns the URL net location of the file specified by ``name``.
         """
         netloc = urlparse.urlparse(name).netloc
-        return netloc.split('@')[0]
+        if '@' in netloc:
+            return netloc.split('@')[1]
+        else:
+            return netloc
 
     def credentials(self, name):
         """
