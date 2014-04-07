@@ -68,7 +68,7 @@ class Metadata(models.Model):
     content     = models.CharField(max_length=200)
 
     def __str__(self):
-        return '{0}.{1}: {2}'.format(media, name, content)
+        return '{0}.{1}: {2}'.format(self.media, self.name, self.content)
 
     class Meta:
         app_label = 'meho'
