@@ -35,7 +35,7 @@ MEHO_PUBLISHER_BACKENDS = getattr(django_settings, 'MEHO_PUBLISHER_BACKENDS', {
 })
 
 MEHO_AUTH_BACKENDS = getattr(django_settings, 'MEHO_AUTH_BACKENDS', {
-    'basic': 'requests.auth.HTTPBasiAuth',
+    'basic': 'requests.auth.HTTPBasicAuth',
     'digest': 'requests.auth.HTTPDigestAuth'
 })
 
