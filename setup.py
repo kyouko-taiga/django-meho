@@ -43,6 +43,6 @@ setup(
         "License :: OSI Approved :: Apache Software License",
     ],
     extras_require = {},
-    install_requires = ['django'],
+    install_requires = ['django', 'requests'],
     entry_points={},
 )
