@@ -39,12 +39,13 @@ class WebdavVolumeDriver(VolumeDriver):
     def volume_scheme(self):
         return 'http'
 
-    def open(self, name, mode='rb'):
+    def open(self, name, mode='r'):
         assert name, 'The name argument is not allowed to be empty.'
-        return WebdavFileWrapper(self, name)
+        return WebdavFileWrapper(self, name, mode)
 
     def save(self, name, content):
         assert name, 'The name argument is not allowed to be empty.'
+        # upload issue: cannot write file content with HTTP Digest authentication
         self._write(name, content)
 
     def delete(self, name):
@@ -108,8 +109,9 @@ class WebdavVolumeDriver(VolumeDriver):
         # them from the credential manager
         else:
             try:
+                print 
                 credentials = self._credential_set.get(scheme=auth_scheme, origin=origin).data
-            except self._credential_set.DoesNotExist:
+            except Credentials.DoesNotExist:
                 credentials = None
 
         auth_class = meho_settings.MEHO_AUTH_BACKENDS.get(auth_scheme, None)
@@ -126,14 +128,23 @@ class WebdavVolumeDriver(VolumeDriver):
 
 class WebdavFileWrapper(object):
 
-    def __init__(self, volume_driver, name):
+    def __init__(self, volume_driver, name, mode):
         self._volume_driver = volume_driver
         self._name = name
+        self._mode = mode
         self._file = None
 
     def __getattr__(self, name):
         if self._file is None:
-            self._file = self._volume_driver._read(self._name)
+            # if write mode, override any existing content of the remote file
+            if 'w' in self._mode:
+                self._file = tempfile.TemporaryFile()
+            # otherwise fetch the content (read or append mode)
+            else:
+                self._file = self._volume_driver._read(self._name)
+                # if append mode, seek end of the file
+                if 'a' in self._mode:
+                    self._file.seek(0,2)
         return getattr(self._file, name)
 
     def close(self):
