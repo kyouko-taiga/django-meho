@@ -15,11 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse, json
-
-from urllib.error import HTTPError
-from urllib.parse import urljoin, urlsplit, urlunsplit
-from urllib.request import Request, build_opener
+import argparse, json, re, requests
+from urllib.parse import urljoin, urlunsplit
 
 __version__ = '0.1'
 
@@ -45,7 +42,7 @@ class MehoClient(object):
         meho media
         ~~~~~~~~~~
 
-            meho-manage media list <url>
+            meho-manage media list <url> [--filters...]
         """
         if len(args) > 1 and args[1] in ('-h', '--help'):
             print(self.main.__doc__)
@@ -77,23 +74,51 @@ class MehoClient(object):
 
         # request API version on the meho server
         url = urljoin(self._format_url(args.url), 'version')
-        request = Request(url, headers={'Content-Type': 'application/json'})
-        opener = build_opener()
-        response = opener.open(request)
+        print(args.url, self._format_url(args.url))
+        r = requests.get(url)
 
         # parse the server response
-        data = json.loads(response.read().decode('utf-8'))
+        data = r.json()
         print('API version: %s' % data['version'])
 
+    def media_list(self, *args):
+        # parse command line options
+        parser = argparse.ArgumentParser(prog='meho-manage media list')
+        parser.add_argument('url', help='root url to the API endpoint')
+        parser.add_argument('-u', '--user', help='username of your meho account')
+        parser.add_argument('-p', '--password', help='password of your meho account')
+        parser.add_argument('-f', '--filters', help='list of filters to apply on list query')
+        args = parser.parse_args(args)
+
+        # request API for media list
+        api_url = self._format_url(args.url)
+        csrftoken = self._get_csrf_token(api_url)
+        payload = {k:v for k,v in map(lambda f: f.split('='), args.filters)}
+        r = requests.get(url, cookies={'csrftoken':csrftoken}, params=payload)
+
+        # parse the server response
+        data = r.json()
+        print(data)
+
+    def _get_csrf_token(self, url):
+        if 'CSRFTOKEN' in os.environ:
+            return os.environ['CSRFTOKEN']
+        url = urljoin(self._format_url(args.url), 'version')
+        r = requests.get(url)
+        return r.cookies.get('csrftoken', None)
+
     def _format_url(self, url):
-        parts = urlsplit(url, 'http')
-        if parts.netloc:
-            netloc, path = parts.netloc, parts.path
-        else:
-            netloc = parts.path.split('/')[0]
-            path = '/'.join(parts.path.split('/')[1:])
-        return urlunsplit((parts.scheme, netloc, path, parts.query, parts.fragment))
-            
+        """Completes missing parts of a user-privided and returns it."""
+        exp = re.compile(r'^((?P<scheme>[a-z](?:[a-z\d\+\.-])*):\/\/)?'
+            r'(?P<host>[a-z](?:[a-z\d\.-])*(?::[0-9]+)?)(?P<path>(?:\/[\w\.-]+\/?)*)'
+            r'(?P<query>\?(?:\w+(?:=\w+)&?)*)?(?P<fragment>#\w*)?$')
+        match = exp.match(url)
+        if not match:
+            raise ValueError('Invalid url: %s' % url)
+        
+        parts = match.groupdict('')
+        parts['scheme'] = parts['scheme'] or 'http'
+        return '%(scheme)s://%(host)s%(path)s%(query)s%(fragment)s' % parts
 
 if __name__ == '__main__':
     import sys
