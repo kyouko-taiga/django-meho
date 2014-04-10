@@ -40,23 +40,24 @@ class FFmpeg(object):
            available by the ``PATH`` variable.
         """
         # get file locators for input/output media
-        selector   = VolumeSelector()
-        volume_in  = selector.backend_for(selector.scheme(media_in.private_url))()
-        volume_out = selector.backend_for(selector.scheme(media_out.private_url))()
+        selector = VolumeSelector()
+        volume = selector.backend_for(selector.scheme(media_in.private_url))()
 
-        # retrieve an accessible absolute path to the input media
         try:
-            input_file = volume_in.path(media_in.private_url)
+            # try to access input file from absolute path
+            input_file = volume.path(media_in.private_url)
         except NotImplementedError:
-            with volume_in.open(media_in.private_url) as f:
-                input_file = self._local_copy(f)
+            try:
+                # try to access input file from url 
+                input_file = 'cache:' + volume.url(media_in.private_url)
+            except NotImplementedError:
+                # since we can't user neither path nor url, we'll
+                # copy the input file to a local temporary file
+                with volume.open(media_in.private_url) as f:
+                    input_file = self._local_copy(f)
 
-        # retrieve an accessible absolute path to the output media
-        try:
-            output_file = volume_out.path(media_out.private_url)
-        except NotImplementedError:
-            with volume_out.open(media_out.private_url) as f:
-                output_file = self._local_copy(f)
+        # write the output file to a temporary file
+        _, output_file = tempfile.mkstemp()
 
         # start ffmpeg task
         return self._start_ffmpeg_task(input_file, output_file, encoder_string, media_out)
@@ -71,20 +72,21 @@ class FFmpeg(object):
         """
         # retrieves input media information
         input_info = parse_ffprobe(input_file)
+        output_info = {'filename': output_file, 'media': media_out}
 
         # generate ffmpeg command
         cmd = 'ffmpeg -y -i "%s" %s "%s"' % (input_file, encoder_string, output_file)
 
         # run ffmpeg in a new thread
         p = Popen(shlex.split(cmd), stderr=PIPE, close_fds=True, shell=False)
-        t = threading.Thread(target=self._handle_ffmpeg_task, args=[p, input_info, media_out])
+        t = threading.Thread(target=self._handle_ffmpeg_task, args=[p, input_info, output_info])
         t.setDaemon(True)
         t.start()
 
         logger.info('started ffmpeg job [%i]: %s' % (p.pid, cmd))
         return 'task_ffmpeg_{0}'.format(p.pid)
 
-    def _handle_ffmpeg_task(self, ffmpeg_proc, input_info, media_out):
+    def _handle_ffmpeg_task(self, ffmpeg_proc, input_info, output_info):
         """Handles the execution of a ffmpeg task.
         
         The logic of this function is mostly based on OSCIED (https://github.com/ebu/OSCIED) for
@@ -121,9 +123,9 @@ class FFmpeg(object):
             # parse ffmpeg output to compute progress status
             match = FFMPEG_REGEX.match(chunk.decode('utf-8'))
             if match:
-                output_info = match.groupdict()
+                ffmpeg_output = match.groupdict()
                 try:
-                    ratio = total_seconds(output_info['time']) / float(input_duration)
+                    ratio = total_seconds(ffmpeg_output['time']) / float(input_duration)
                     ratio = 0.0 if ratio < 0.0 else 1.0 if ratio > 1.0 else ratio
                 except ZeroDivisionError:
                     ratio = 1.0
@@ -147,19 +149,27 @@ class FFmpeg(object):
                 break
 
         # call handler for ffmpeg task termination
-        self._handle_ffmpeg_complete(ffmpeg_proc, media_out)
+        self._handle_ffmpeg_complete(ffmpeg_proc, output_info)
 
-    def _handle_ffmpeg_complete(self, ffmpeg_proc, media_out):
+    def _handle_ffmpeg_complete(self, ffmpeg_proc, output_info):
         """
         Handles the termination of a ffmpeg task.
         """
-        # update output media status
         status_code = ffmpeg_proc.poll()
         if status_code == 0:
-            media_out.status = 'ready'
+            # copy the transcoded file to the output media's private_url
+            private_url = output_info['media'].private_url
+            selector = VolumeSelector()
+            volume = selector.backend_for(selector.scheme(private_url))()
+            try:
+                os.rename(output_info['filename'], volume(private_url).path)
+            except NotImplementedError:
+                with open(output_info['filename'], 'rb') as f:
+                    volume.save(private_url, f)
+            output_info['media'].status = 'ready'
         else:
-            media_out.status = 'failed'
-        media_out.save()
+            output_info['media'].status = 'failed'
+        output_info['media'].save()
 
         cache.set('task_ffmpeg_{0}'.format(ffmpeg_proc.pid), {
             'eta': 0,

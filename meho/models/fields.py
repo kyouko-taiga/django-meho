@@ -15,14 +15,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from django.db.models.fields import CharField
+import json
+
+from collections.abc import Mapping
+from django.db import models
+from django.db.models.fields import CharField, TextField
 from django.utils.translation import ugettext_lazy as _
 from meho.core import validators
 from meho.forms.fields import URNFormField
 
 class URNField(CharField):
 
-    default_validators = [validators.validate_urn]
     description = _('URN')
 
     def __init__(self, *args, **kwargs):
@@ -33,3 +36,18 @@ class URNField(CharField):
         defaults = {'form_class': URNFormField}
         defaults.update(kwargs)
         return super(CharField, self).formfield(**defaults)
+
+class CredentialsField(TextField, metaclass=models.SubfieldBase):
+
+    description = _('Dictionary-like object to contain credentials.')
+
+    def __init__(self, *args, **kwargs):
+        TextField.__init__(self, *args, **kwargs)
+
+    def to_python(self, value):
+        if isinstance(value, Mapping):
+            return value
+        return json.loads(value.decode('utf-8'))
+    
+    def get_prep_value(self, value):
+        return json.dumps(value).encode('utf-8')

@@ -15,6 +15,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from meho.models.credentials import Credentials
-from meho.models.media import Media, Metadata
-from meho.models.video import Movie, Serie, Episode
+from django.db import models
+from meho.models.fields import CredentialsField
+
+class Credentials(models.Model):
+
+    scheme = models.CharField(max_length=200)
+    origin = models.CharField(max_length=200)
+    data = CredentialsField()
+
+    def __str__(self):
+        return '({0},{1}): {2}'.format(self.scheme, self.origin, self.data)
+
+    class Meta:
+        app_label = 'meho'
