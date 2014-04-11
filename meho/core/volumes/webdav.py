@@ -20,109 +20,55 @@ import meho.settings as meho_settings
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import File
-from requests.cookies import extract_cookies_to_jar
 from django.utils.module_loading import import_by_path
 from meho.core.volumes.base import VolumeDriver
 from meho.models import Credentials
 try:
+    from io import StringIO
     from urllib import parse as urlparse
 except:
+    import StringIO
     import urlparse
 
 class WebdavVolumeDriver(VolumeDriver):
 
-    class AutoAuth(requests.auth.AuthBase):
-
-        def __init__(self, identities, volume_driver):
-            self.identities = identities
-            self.volume_driver = volume_driver
-            self._handlers = {}
-
-        def __call__(self, request, **kwargs):
-            if request.url in self._handlers:
-                # attach an already built auth handler
-                return self._handlers[request.url](request, **kwargs)
-            else:
-                # add a hook to the request so it calls _retry_401 if it fails
-                request.register_hook('response', self._retry_401)
-                return request
-
-        def reset(self):
-            self._handlers = {}
-
-        def _retry_401(self, response, **kwargs):
-            if response.status_code != 401:
-                return response
-
-            auth_scheme = response.headers.get('www-authenticate', '').split(' ')[0].lower()
-            origin = self.volume_driver.netloc(response.url)
-
-            try:
-                identity = self.identities.get(scheme=auth_scheme, origin=origin).data
-            except Credentials.DoesNotExist:
-                identity = None
-
-            auth_class = meho_settings.MEHO_AUTH_BACKENDS.get(auth_scheme, None)
-            if identity and auth_class:
-                # set authentication handler for requested url
-                auth = import_by_path(auth_class)(**identity)
-                self._handlers[response.url] = auth
-
-                # consume content and release the original connection
-                # to allow our new request to reuse the same one
-                response.content
-                response.raw.release_conn()
-                prep = auth(response.request.copy())
-                extract_cookies_to_jar(prep._cookies, response.request, response.raw)
-                prep.prepare_cookies(prep._cookies)
-
-                _r = response.connection.send(prep, **kwargs)
-                _r.history.append(response)
-                _r.request = prep
-                return _r
-            else:
-                raise ImproperlyConfigured(
-                    'No authentication credentials for "%(origin)s" with scheme '
-                    '"%(scheme)s". Either provide credentials within the file '
-                    'name or set credentials for (%(origin)s, %(scheme)s).' % {
-                        'origin': origin,
-                        'scheme': auth_scheme
-                    })
-
-    def __init__(self, identities=None):
-        self.identities = identities or Credentials.objects
-        self.auth_handler = WebdavVolumeDriver.AutoAuth(self.identities, self)
+    def __init__(self, credential_set=None):
+        self._credential_set = credential_set or Credentials.objects
 
     @property
     def volume_scheme(self):
         return 'http'
 
     def open(self, name, mode='r'):
+        assert name, 'The name argument is not allowed to be empty.'
         return WebdavFileWrapper(self, name, mode)
 
     def save(self, name, content):
-        # issue #2: cannot write file content with HTTP Digest authentication
+        assert name, 'The name argument is not allowed to be empty.'
+        # upload issue: cannot write file content with HTTP Digest authentication
         self._write(name, content)
 
     def delete(self, name):
-        response = requests.delete(name, auth=self.auth_handler)
+        assert name, 'The name argument is not allowed to be empty.'
+        self._delete(name)
 
     def exists(self, name):
-        response = requests.head(name, auth=self.auth_handler)
-        if response.status_code == 200:
-            return True
-        elif response.status_code == 404:
+        assert name, 'The name argument is not allowed to be empty.' 
+        try:
+            self._head(name)
+        except:
             return False
-        else:
-            response.raise_for_status()
+        return True
 
     def url(self, name):
         return re.sub(r'\/\/.*:?.*@', '//', name)
 
     def _read(self, name):
-        response = requests.get(name, auth=self.auth_handler)
-        temporary_file = tempfile.TemporaryFile()
-        for chunk in response.iter_content(chunk_size=1024):
+        # first try to get resource without any authentication
+        req = self._retry_if_auth('GET', name)
+
+        temporary_file = tempfile.SpooledTemporaryFile(max_size=10485760)
+        for chunk in req.iter_content(chunk_size=1024):
             if chunk:
                 temporary_file.write(chunk)
                 temporary_file.flush()
@@ -130,24 +76,55 @@ class WebdavVolumeDriver(VolumeDriver):
         return temporary_file
 
     def _write(self, name, content):
-        # create a directories if required
-        self._mkdirs(name)
+        req = self._retry_if_auth('PUT', name, data=content)
 
-        # we send a HEAD request before sending the actual data so we can load
-        # authentication credentials without reading the file about te be sent
-        requests.head(name, auth=self.auth_handler)
-        requests.put(name, auth=self.auth_handler, data=content)
+    def _delete(self, name):
+        req = self._retry_if_auth('DELETE', name)
 
-    def _mkdirs(self, name):
-        file_url = self.url(name)
-        file_path = self.filename(name)
-        url_split = urlparse.urlsplit(file_url)
-        base_url = urlparse.urlunsplit((url_split.scheme, url_split.netloc, '', '', ''))
+    def _head(self, name):
+        req = self._retry_if_auth('HEAD', name)
 
-        for directory in file_path.split('/')[1:-1]:
-            base_url = urlparse.urljoin(base_url, directory + '/')
-            if not self.exists(base_url):
-                requests.request('MKCOL', base_url, auth=self.auth_handler)
+    def _retry_if_auth(self, method, name, **kwargs):
+        url = self.url(name)
+        req = requests.request(method, url, **kwargs)
+
+        # if server returned 401, retry with authentication credentials
+        if req.status_code == 401:
+            kwargs['auth'] = self._get_auth_handler(name, req)
+            req = requests.request(method, url, **kwargs)
+        if req.status_code != 200:
+            req.raise_for_status()
+        return req
+
+    def _get_auth_handler(self, name, request):
+        auth_scheme = request.headers['WWW-Authenticate'].split(' ')[0].lower()
+        credentials = self.credentials(name)
+        origin = self.netloc(name)
+
+        # format credentials into kwargs style if provided within the file name
+        if credentials is not None:
+            credentials = {'username': credentials[0], 'password': credentials[1]}
+
+        # if credentials are not provided within the file name, we try to get
+        # them from the credential manager
+        else:
+            try:
+                print 
+                credentials = self._credential_set.get(scheme=auth_scheme, origin=origin).data
+            except Credentials.DoesNotExist:
+                credentials = None
+
+        auth_class = meho_settings.MEHO_AUTH_BACKENDS.get(auth_scheme, None)
+        if credentials and auth_class:
+            return import_by_path(auth_class)(**credentials)
+        else:
+            raise ImproperlyConfigured(
+                'No authentication credentials for "%(origin)s" with scheme '
+                '"%(scheme)s". Either provide credentials within the file '
+                'name or set credentials for (%(origin)s, %(scheme)s).' % {
+                    'origin': origin,
+                    'scheme': auth_scheme
+                })
 
 class WebdavFileWrapper(object):
 
@@ -161,7 +138,7 @@ class WebdavFileWrapper(object):
         if self._file is None:
             # if write mode, override any existing content of the remote file
             if 'w' in self._mode:
-                self._file = tempfile.TemporaryFile()
+                self._file = tempfile.SpooledTemporaryFile(max_size=10485760)
             # otherwise fetch the content (read or append mode)
             else:
                 self._file = self._volume_driver._read(self._name)
@@ -171,10 +148,6 @@ class WebdavFileWrapper(object):
         return getattr(self._file, name)
 
     def close(self):
-        if not self._file:
-            return
-
-        if 'r' not in self._mode:
-            self._file.seek(0)
-            self._volume_driver._write(self._name, self._file)
+        self._file.seek(0)
+        self._volume_driver._write(self._name, self._file)
         return self._file.close()
