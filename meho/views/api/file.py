@@ -20,7 +20,7 @@ import os
 
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseNotAllowed
-from meho.auth import basic_http_auth
+from meho.auth.decorators import basic_http_auth
 
 @basic_http_auth(realm='api')
 def upload(request, user, filename):

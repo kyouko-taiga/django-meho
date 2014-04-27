@@ -24,7 +24,7 @@ from django.views.generic import View
 from django.views.generic.edit import ModelFormMixin
 from django.utils.decorators import method_decorator
 
-from meho.auth import basic_http_auth
+from meho.auth.decorators import basic_http_auth
 from meho.models import Media
 from meho.core.encoders import load_encoder
 from meho.core.publishers import PublisherSelector
