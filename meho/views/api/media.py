@@ -38,8 +38,8 @@ class MediaCrudView(CrudView):
     @method_decorator(basic_http_auth(realm='api'))
     def put(self, request, user, pk=None):
         rq_body = self.parse_request_body()
-        override = rq_body['override'] if 'override' in rq_body else False
-        return super(MediaCrudView, self).put(request, override=override)
+        overwrite = rq_body['overwrite'] if 'overwrite' in rq_body else False
+        return super(MediaCrudView, self).put(request, overwrite=overwrite)
 
     @method_decorator(basic_http_auth(realm='api'))
     def get(self, request, user, pk=None):
