@@ -68,7 +68,15 @@ class MehoClient(object):
                 if you want to ignore this error and overwrite any existing
                 media.
 
-            meho-manage media update
+            meho-manage media update [-u user] [-p [password]] [-r private_url]
+                                     [-t type] [-a parent] <urn> <api>
+
+                Updates an existing media with the provided data.
+
+                ``private_url`` should denote a meho-compatible url to the
+                media source, e.g. file:///path/to/media. See the meho
+                documentation for an exhaustive list of supported url scheme.
+
             meho-manage media delete
 
         """
@@ -140,14 +148,14 @@ class MehoClient(object):
         parser = argparse.ArgumentParser(prog='meho-manage media detail')
         parser.add_argument('-u', '--user', help='username of your meho account')
         parser.add_argument('-p', '--password', help='password of your meho account')
-        parser.add_argument('media_urn', help='urn of the media to be detailed')
+        parser.add_argument('urn', help='urn of the media to be detailed')
         parser.add_argument('api', help='root url to the API endpoint')
         args = parser.parse_args(args)
 
         # request API for media detail
         auth = self._get_credentials(args)
         api_url = self._format_url(args.api)
-        endpoint = '%(api)smedia/%(urn)s' % {'api': api_url, 'urn': args.media_urn}
+        endpoint = '%(api)smedia/%(urn)s' % {'api': api_url, 'urn': args.urn}
         r = requests.get(endpoint, auth=auth)
 
         # parse the server response
@@ -188,6 +196,41 @@ class MehoClient(object):
             endpoint += '/' + args.urn
         auth = self._get_credentials(args)
         r = session.put(endpoint, auth=auth, data=json.dumps(payload),
+            headers={'X-CSRFToken':csrftoken, 'content-type': 'application/json'})
+
+        # parse the server response
+        if r.status_code == 201:
+            print(json.dumps(r.json(), indent=4, sort_keys=True))
+        elif r.status_code == 401:
+            self._handle_401(r)
+
+    def media_update(self, *args):
+        # parse command line options
+        parser = argparse.ArgumentParser(prog='meho-manage media update')
+        parser.add_argument('-u', '--user', help='username of your meho account')
+        parser.add_argument('-p', '--password', help='password of your meho account')
+        parser.add_argument('-r', '--private_url', help='private url of the media')
+        parser.add_argument('-t', '--media_type', help='type of the media')
+        parser.add_argument('-a', '--parent', help='parent of the media')
+        parser.add_argument('urn', help='urn of the media to be updated')
+        parser.add_argument('api', help='root url to the API endpoint')
+        args = parser.parse_args(args)
+
+        # get csrftoken
+        api_url = self._format_url(args.api)
+        session = requests.Session()
+        csrftoken = self._get_csrf_token(session, api_url)
+
+        # forge payload
+        fields = ['media_type', 'parent', 'private_url']
+        payload = {'media': {f:getattr(args, f) for f in fields if getattr(args, f) is not None}}
+
+        # request API for media creation
+        endpoint = api_url + 'media'
+        if args.urn:
+            endpoint += '/' + args.urn
+        auth = self._get_credentials(args)
+        r = session.post(endpoint, auth=auth, data=json.dumps(payload),
             headers={'X-CSRFToken':csrftoken, 'content-type': 'application/json'})
 
         # parse the server response
