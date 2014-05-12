@@ -234,8 +234,36 @@ class MehoClient(object):
             headers={'X-CSRFToken':csrftoken, 'content-type': 'application/json'})
 
         # parse the server response
-        if r.status_code == 201:
+        if r.status_code == 200:
             print(json.dumps(r.json(), indent=4, sort_keys=True))
+        elif r.status_code == 401:
+            self._handle_401(r)
+
+    def media_delete(self, *args):
+        # parse command line options
+        parser = argparse.ArgumentParser(prog='meho-manage media delete')
+        parser.add_argument('-u', '--user', help='username of your meho account')
+        parser.add_argument('-p', '--password', help='password of your meho account')
+        parser.add_argument('urn', help='urn of the media to be updated')
+        parser.add_argument('api', help='root url to the API endpoint')
+        args = parser.parse_args(args)
+
+        # get csrftoken
+        api_url = self._format_url(args.api)
+        session = requests.Session()
+        csrftoken = self._get_csrf_token(session, api_url)
+
+        # request API for media creation
+        endpoint = api_url + 'media'
+        if args.urn:
+            endpoint += '/' + args.urn
+        auth = self._get_credentials(args)
+        r = session.delete(endpoint, auth=auth,
+            headers={'X-CSRFToken':csrftoken, 'content-type': 'application/json'})
+
+        # parse the server response
+        if r.status_code == 204:
+            print('\033[92mObject successfully deleted\033[0m')
         elif r.status_code == 401:
             self._handle_401(r)
 
