@@ -77,7 +77,10 @@ class MehoClient(object):
                 media source, e.g. file:///path/to/media. See the meho
                 documentation for an exhaustive list of supported url scheme.
 
-            meho-manage media delete
+            meho-manage media delete [-u user] [-p [password]] <urn> <api>
+
+                Deletes an existing media.
+                
 
         """
         if len(args) > 1 and args[1] in ('-h', '--help'):
@@ -238,6 +241,8 @@ class MehoClient(object):
             print(json.dumps(r.json(), indent=4, sort_keys=True))
         elif r.status_code == 401:
             self._handle_401(r)
+        elif r.status_code == 404:
+            self._handle_404(r)
 
     def media_delete(self, *args):
         # parse command line options
@@ -266,6 +271,8 @@ class MehoClient(object):
             print('\033[92mObject successfully deleted\033[0m')
         elif r.status_code == 401:
             self._handle_401(r)
+        elif r.status_code == 404:
+            self._handle_404(r)
 
     def _handle_401(self, response):
         print('\033[91mAuthentication failed\033[0m\n'
