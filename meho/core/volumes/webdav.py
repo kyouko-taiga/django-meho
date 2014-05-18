@@ -22,6 +22,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import File
 from django.utils.module_loading import import_by_path
 from meho.core.volumes.base import VolumeDriver
+from meho.auth.backends import AutoAuth
 from meho.models import Credentials
 try:
     from io import StringIO
@@ -32,8 +33,9 @@ except:
 
 class WebdavVolumeDriver(VolumeDriver):
 
-    def __init__(self, credential_set=None):
-        self._credential_set = credential_set or Credentials.objects
+    def __init__(self, identities=None):
+        self.identities = identities or Credentials.objects
+        self.auth_handler = AutoAuth(self.identities)
 
     @property
     def volume_scheme(self):
@@ -84,9 +86,10 @@ class WebdavVolumeDriver(VolumeDriver):
     def _head(self, name):
         req = self._retry_if_auth('HEAD', name)
 
-    def _retry_if_auth(self, method, name, **kwargs):
-        url = self.url(name)
-        req = requests.request(method, url, **kwargs)
+        for directory in file_path.split('/')[1:-1]:
+            base_url = urlparse.urljoin(base_url, directory + '/')
+            if not self.exists(base_url):
+                requests.request('MKCOL', base_url, auth=self.auth_handler)
 
         # if server returned 401, retry with authentication credentials
         if req.status_code == 401:

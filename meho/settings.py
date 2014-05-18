@@ -28,6 +28,7 @@ MEHO_ENCODERS = getattr(django_settings, 'MEHO_ENCODERS', {
 MEHO_VOLUME_BACKENDS = getattr(django_settings, 'MEHO_VOLUME_BACKENDS', {
     'file': 'meho.core.volumes.FileSystemVolumeDriver',
     'tmp': 'meho.core.volumes.TemporaryVolumeDriver',
+    'http': 'meho.core.volumes.WebdavVolumeDriver'
 })
 
 MEHO_PUBLISHER_BACKENDS = getattr(django_settings, 'MEHO_PUBLISHER_BACKENDS', {

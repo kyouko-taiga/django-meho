@@ -17,6 +17,7 @@
 
 import meho.settings as meho_settings
 
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_by_path
 try:
     from urllib import parse as urlparse
@@ -47,4 +48,7 @@ class VolumeSelector(object):
         """
         Returns the backend class that handles ``scheme``.
         """
+        if scheme not in self.backends:
+            raise ImproperlyConfigured(
+                'No volume driver set for "%(scheme)s".' % {'scheme': sheme})
         return self.backends[scheme]

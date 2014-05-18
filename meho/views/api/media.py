@@ -24,7 +24,7 @@ from django.views.generic import View
 from django.views.generic.edit import ModelFormMixin
 from django.utils.decorators import method_decorator
 
-from meho.auth import basic_http_auth
+from meho.auth.decorators import basic_http_auth
 from meho.models import Media
 from meho.core.encoders import load_encoder
 from meho.core.publishers import PublisherSelector
@@ -38,8 +38,8 @@ class MediaCrudView(CrudView):
     @method_decorator(basic_http_auth(realm='api'))
     def put(self, request, user, pk=None):
         rq_body = self.parse_request_body()
-        override = rq_body['override'] if 'override' in rq_body else False
-        return super(MediaCrudView, self).put(request, override=override)
+        overwrite = rq_body['overwrite'] if 'overwrite' in rq_body else False
+        return super(MediaCrudView, self).put(request, overwrite=overwrite)
 
     @method_decorator(basic_http_auth(realm='api'))
     def get(self, request, user, pk=None):

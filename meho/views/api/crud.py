@@ -34,7 +34,7 @@ class ReadMixin(object):
         Returns the ``QuerySet`` that will be used to look up the object.
 
         Note that this method is called by the default implementation of
-        ``get_object`` and may not be called if ``get_object`` is overriden.
+        ``get_object`` and may not be called if ``get_object`` is overwriten.
         """
         if self.queryset is None:
             if self.model:
@@ -42,7 +42,7 @@ class ReadMixin(object):
             else:
                 raise ImproperlyConfigured(
                     "%(cls)s is missing a QuerySet. Define "
-                    "%(cls)s.model, %(cls)s.queryset, or override "
+                    "%(cls)s.model, %(cls)s.queryset, or overwrite "
                     "%(cls)s.get_queryset()." % {
                         'cls': self.__class__.__name__
                     }
@@ -59,7 +59,7 @@ class SingleReadMixin(ReadMixin):
             return self.model._meta.verbose_name
         else:
             raise ImproperlyConfigured(
-                "%(cls)s is missing a model. Define %(cls)s.model or override"
+                "%(cls)s is missing a model. Define %(cls)s.model or overwrite"
                 "%(cls)s.get_model_name()." % {'cls': self.__class__.__name__}
             )
 
@@ -68,7 +68,7 @@ class SingleReadMixin(ReadMixin):
         Returns the object the view is rendering.
 
         By default this requires ``self.queryset`` and a ``pk`` argument in
-        the URLconf, but subclasses can override this to return any object.
+        the URLconf, but subclasses can overwrite this to return any object.
         """
         # use a custom queryset if provided
         if queryset is None:
@@ -107,7 +107,7 @@ class MultipleReadMixin(ReadMixin):
             return self.model._meta.verbose_name_plural
         else:
             raise ImproperlyConfigured(
-                "%(cls)s is missing a model. Define %(cls)s.model or override"
+                "%(cls)s is missing a model. Define %(cls)s.model or overwrite"
                 "%(cls)s.get_model_name()." % {'cls': self.__class__.__name__}
             )
 
@@ -116,7 +116,7 @@ class MultipleReadMixin(ReadMixin):
         Returns the objects the view is rendering.
 
         By default this requires ``self.queryset``, but subclasses can
-        override this to return any list of objects.
+        overwrite this to return any list of objects.
         """
         if queryset is None:
             queryset = self.get_queryset()
@@ -185,7 +185,7 @@ class EditMixin(SingleReadMixin):
 class CreateMixin(EditMixin):
     """A mixin that provides a way to handle the creation of a model object."""
 
-    def create_object(self, override=False):
+    def create_object(self, overwrite=False):
         # create and validate new object
         try:
             object_kwargs = self.get_object_kwargs()
@@ -200,7 +200,7 @@ class CreateMixin(EditMixin):
         if self.pk_url_kwarg in self.kwargs:
             try:
                 existing_object = self.get_object()
-                if override:
+                if overwrite:
                     # delete existing instance
                     existing_object.delete()
                     self.object.pk = self.kwargs[self.pk_url_kwarg]
@@ -251,7 +251,7 @@ class CrudView(CreateMixin, MultipleReadMixin, UpdateMixin, DeleteMixin, View):
     """A class-based view for handling CRUD operations on a model."""
 
     def put(self, request, *args, **kwargs):
-        return self.create_object(override=kwargs.get('override', False))
+        return self.create_object(overwrite=kwargs.get('overwrite', False))
 
     def get(self, request, *args, **kwargs):
         # if a pk has been provided, render a single object
