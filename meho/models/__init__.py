@@ -17,4 +17,3 @@
 
 from meho.models.credentials import Credentials
 from meho.models.media import Media, Metadata
-from meho.models.video import Movie, Serie, Episode
