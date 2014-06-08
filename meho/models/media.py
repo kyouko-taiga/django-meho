@@ -35,6 +35,10 @@ class Media(models.Model):
     # can't use the same validator.
     private_url = models.CharField(max_length=200)
 
+    @property
+    def published(self):
+        return bool(public_url)
+
     def get_api_url(self):
         from django.core.urlresolvers import reverse
         return reverse('api_media_one', kwargs={'pk': self.urn})
