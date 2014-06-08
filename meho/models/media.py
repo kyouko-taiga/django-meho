@@ -37,7 +37,7 @@ class Media(models.Model):
 
     @property
     def published(self):
-        return bool(public_url)
+        return bool(self.public_url)
 
     def get_api_url(self):
         from django.core.urlresolvers import reverse
